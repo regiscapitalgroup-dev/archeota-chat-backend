@@ -1,4 +1,5 @@
 from pathlib import Path
+from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -25,27 +26,15 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-
-    'django.contrib.sites', # Requerido por allauth
-
-    # DRF y autenticación JWT
     'rest_framework',
     'rest_framework_simplejwt',
-    'rest_framework.authtoken', # Puedes omitirlo si solo usas JWT
-
-    # Allauth y sus componentes
-    'allauth',
-    'allauth.account',
-    'allauth.socialaccount',
-    'allauth.socialaccount.providers.google', # Proveedor específico de Google
-
-    # dj-rest-auth para integrar allauth con DRF
-    'dj_rest_auth',
-    'dj_rest_auth.registration', # Para endpoints de registro (si usas email/pass también)
-
-    # Tu aplicación
+    'rest_framework_simplejwt.token_blacklist',
+    'account',
     'chat',
+    
 ]
+
+SITE_ID = 1
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -56,7 +45,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'allauth.account.middleware.AccountMiddleware',
+    'djangorestframework_camel_case.middleware.CamelCaseMiddleWare',
 ]
 
 ROOT_URLCONF = 'archeota.urls'
@@ -131,17 +120,8 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-AUTH_USER_MODEL = 'chat.CustomUser'
+AUTH_USER_MODEL = 'account.CustomUser'
 
-# Backends de Autenticación (importante el orden)
-AUTHENTICATION_BACKENDS = (
-    # Necesario para loguearse en el admin de Django con email y contraseña si is_staff=True
-    'django.contrib.auth.backends.ModelBackend',
-    # Autenticación específica de allauth, ej: login por email y social
-    'allauth.account.auth_backends.AuthenticationBackend',
-)
-
-SITE_ID = 1
 
 # --- Configuración DRF ---
 REST_FRAMEWORK = {
@@ -152,64 +132,44 @@ REST_FRAMEWORK = {
         # Cambia según tus necesidades, ej: IsAuthenticatedOrReadOnly
         'rest_framework.permissions.IsAuthenticated',
     ),
+    'DEFAULT_RENDERER_CLASSES': (
+        'djangorestframework_camel_case.render.CamelCaseJSONRenderer',
+        'djangorestframework_camel_case.render.CamelCaseBrowsableAPIRenderer',
+    ),
+
+    'DEFAULT_PARSER_CLASSES': (
+        'djangorestframework_camel_case.parser.CamelCaseFormParser',
+        'djangorestframework_camel_case.parser.CamelCaseMultiPartParser',
+        'djangorestframework_camel_case.parser.CamelCaseJSONParser',
+    ),    
 }
 
-# --- Configuración JWT (djangorestframework-simplejwt) ---
-from datetime import timedelta
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60), # O el tiempo que prefieras
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),    # O el tiempo que prefieras
-    'ROTATE_REFRESH_TOKENS': True, # Opcional: cambia el refresh token en cada uso
-    'BLACKLIST_AFTER_ROTATION': True, # Invalida el refresh token anterior
-    'USER_ID_FIELD': 'id', # Campo del CustomUser model a usar como ID
-    'USER_ID_CLAIM': 'user_id', # Nombre del claim en el token
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60), # Duración del token de acceso (ej: 1 hora)
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),   # Duración del token de refresco (ej: 7 días)
+    'ROTATE_REFRESH_TOKENS': True, # El refresh token cambia en cada uso (más seguro)
+    'BLACKLIST_AFTER_ROTATION': True, # Invalida el refresh token anterior después de la rotación
+                                      # Requiere 'rest_framework_simplejwt.token_blacklist' en INSTALLED_APPS
+
+    'ALGORITHM': 'HS256',
+    'SIGNING_KEY': SECRET_KEY, # Reutiliza la SECRET_KEY de Django
+    'VERIFYING_KEY': None,
+    'AUDIENCE': None,
+    'ISSUER': None,
+    'JWK_URL': None,
+    'LEEWAY': 0,
+
+    'AUTH_HEADER_TYPES': ('Bearer',), # Espera 'Bearer <token>' en la cabecera Authorization
+    'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
+    'USER_ID_FIELD': 'id', # PK de tu CustomUser model
+    'USER_ID_CLAIM': 'user_id', # Nombre del claim que contendrá el ID de usuario
+    'USER_AUTHENTICATION_RULE': 'rest_framework_simplejwt.authentication.default_user_authentication_rule',
+
+    'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
+    'TOKEN_TYPE_CLAIM': 'token_type',
+    'TOKEN_USER_CLASS': 'rest_framework_simplejwt.models.TokenUser',
+
+    'JTI_CLAIM': 'jti', # JWT ID
+
+    'UPDATE_LAST_LOGIN': True, # Actualiza el campo last_login del usuario al loguearse
 }
-
-# --- Configuración dj-rest-auth ---
-REST_AUTH = {
-    'USE_JWT': True,             # Indicar a dj-rest-auth que use JWT
-    'SESSION_LOGIN': False,      # Deshabilitar login de sesión para una API stateless
-    'JWT_AUTH_HTTPONLY': False,  # False si el frontend necesita leer el token (considera seguridad)
-                                 # Para refresh tokens, HttpOnly cookies son una opción más segura.
-    'JWT_AUTH_RETURN_EXPIRATION': True, # Incluir expiración en la respuesta del token
-    # 'USER_DETAILS_SERIALIZER': 'path.to.your.CustomUserDetailsSerializer', # Si necesitas personalizar
-}
-
-# --- Configuración django-allauth ---
-ACCOUNT_ADAPTER = 'allauth.account.adapter.DefaultAccountAdapter'
-SOCIALACCOUNT_ADAPTER = 'allauth.socialaccount.adapter.DefaultSocialAccountAdapter'
-
-ACCOUNT_USER_MODEL_USERNAME_FIELD = None # Nuestro CustomUser no tiene 'username'
-ACCOUNT_EMAIL_REQUIRED = True
-ACCOUNT_USERNAME_REQUIRED = False
-ACCOUNT_AUTHENTICATION_METHOD = 'email'
-ACCOUNT_UNIQUE_EMAIL = True
-ACCOUNT_EMAIL_VERIFICATION = 'optional' # O 'none' para API y simplificar el flujo inicial.
-                                        # 'mandatory' si quieres forzar verificación vía email.
-SOCIALACCOUNT_EMAIL_VERIFICATION = ACCOUNT_EMAIL_VERIFICATION
-SOCIALACCOUNT_EMAIL_REQUIRED = ACCOUNT_EMAIL_REQUIRED
-
-# Configuración del proveedor Google
-# ¡RECUERDA GUARDAR CLIENT_ID Y SECRET DE FORMA SEGURA, NO EN EL CÓDIGO EN PRODUCCIÓN!
-# Usa variables de entorno o un sistema de gestión de secretos.
-SOCIALACCOUNT_PROVIDERS = {
-    'google': {
-        'APP': {
-            'client_id': 'TU_GOOGLE_CLIENT_ID.apps.googleusercontent.com', # REEMPLAZA
-            'secret': 'TU_GOOGLE_CLIENT_SECRET',                          # REEMPLAZA
-        },
-        'SCOPE': [
-            'profile',
-            'email',
-        ],
-        'AUTH_PARAMS': {
-            'access_type': 'online', # 'offline' si necesitas tokens de refresco del lado del servidor
-        },
-        # Para flujo API, el cliente envía el token, allauth lo verifica
-        # La configuración de 'VERIFIED_EMAIL_REQUIRED' se puede añadir aquí si se desea.
-        # 'VERIFIED_EMAIL_REQUIRED': True,
-    }
-}
-
-# Configuración de Email para desarrollo (necesario si ACCOUNT_EMAIL_VERIFICATION no es 'none')
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
