@@ -1,8 +1,4 @@
 .idea
-archeota/archeota/__pycache__
-archeota/chat/__pycache__
-archeota/chat/migrations/__pycache__
 venv
 .DS_Store
-archeota/account/__pycache__
-archeota/account/migrations/__pycache__
+__pycache__

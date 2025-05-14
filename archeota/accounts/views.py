@@ -5,6 +5,15 @@ from .models import CustomUser # Importa tu modelo
 from .serializers import UserRegistrationSerializer, MyTokenObtainPairSerializer # Importa el nuevo serializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.response import Response
+from allauth.socialaccount.providers.google.views import GoogleOAuth2Adapter
+from allauth.socialaccount.providers.oauth2.client import OAuth2Client
+from dj_rest_auth.registration.views import SocialLoginView
+from rest_framework.views import APIView
+from django.conf import settings
+import requests
+from django.urls import reverse
+from urllib.parse import urljoin
+
 
 class MyTokenObtainPairView(TokenObtainPairView):
     serializer_class = MyTokenObtainPairSerializer
@@ -52,3 +61,28 @@ class UserRegistrationView(generics.CreateAPIView):
         
         return Response(response_data, status=status.HTTP_201_CREATED, headers=headers)
 
+
+class GoogleLogin(SocialLoginView):
+    adapter_class = GoogleOAuth2Adapter
+    callback_url = settings.GOOGLE_OAUTH_CALLBACK_URL
+    client_class = OAuth2Client
+
+
+class GoogleLoginCallback(APIView):
+    def get(self, request, *args, **kwargs):
+        """
+        If you are building a fullstack application (eq. with React app next to Django)
+        you can place this endpoint in your frontend application to receive
+        the JWT tokens there - and store them in the state
+        """
+
+        code = request.GET.get("code")
+
+        if code is None:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+        
+        # Remember to replace the localhost:8000 with the actual domain name before deployment
+        token_endpoint_url = urljoin("http://localhost:8000", reverse("google_login"))
+        response = requests.post(url=token_endpoint_url, data={"code": code})
+
+        return Response(response.json(), status=status.HTTP_200_OK)
