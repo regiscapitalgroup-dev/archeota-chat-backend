@@ -4,6 +4,39 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
+from dj_rest_auth.serializers import SocialLoginSerializer
+
+
+class CustomGoogleLoginSerializer(SocialLoginSerializer):
+    # El frontend envía 'credential', que es el id_token de Google
+    credential = serializers.CharField(required=True, write_only=True)
+
+    # Opcional: si quieres capturar estos campos aunque no se usen para la lógica de auth
+    clientId = serializers.CharField(required=False, write_only=True, allow_blank=True)
+    select_by = serializers.CharField(required=False, write_only=True, allow_blank=True)
+
+    def validate(self, attrs):
+        # Mapeamos el valor de 'credential' al campo 'id_token'
+        # que el adaptador de Google de allauth (usado por SocialLoginView) espera.
+        # SocialLoginSerializer y el adaptador buscarán 'id_token' o 'access_token'.
+
+        id_token_from_credential = attrs.pop('credential', None)
+        if id_token_from_credential:
+            attrs['id_token'] = id_token_from_credential # Aquí hacemos el mapeo
+
+        # Eliminamos los otros campos si no los vamos a usar,
+        # para que no interfieran con la validación del adaptador.
+        attrs.pop('clientId', None)
+        attrs.pop('select_by', None)
+
+        # Llamamos a la validación del padre (SocialLoginSerializer)
+        # que a su vez llamará al adapter.complete_login()
+        try:
+            attrs = super().validate(attrs)
+        except serializers.ValidationError as e:
+            # Puedes inspeccionar 'e.detail' si necesitas depurar errores del adaptador
+            raise e
+        return attrs
 
 
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):

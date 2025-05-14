@@ -2,7 +2,7 @@ from rest_framework import generics, status # Para vistas genéricas
 from rest_framework.permissions import AllowAny # Permitir acceso sin autenticación
 from rest_framework_simplejwt.views import TokenObtainPairView
 from .models import CustomUser # Importa tu modelo
-from .serializers import UserRegistrationSerializer, MyTokenObtainPairSerializer # Importa el nuevo serializer
+from .serializers import UserRegistrationSerializer, MyTokenObtainPairSerializer, CustomGoogleLoginSerializer # Importa el nuevo serializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.response import Response
 from allauth.socialaccount.providers.google.views import GoogleOAuth2Adapter
@@ -64,6 +64,7 @@ class UserRegistrationView(generics.CreateAPIView):
 
 class GoogleLogin(SocialLoginView):
     adapter_class = GoogleOAuth2Adapter
+    serializer_class = CustomGoogleLoginSerializer
     callback_url = settings.GOOGLE_OAUTH_CALLBACK_URL
     client_class = OAuth2Client
 
