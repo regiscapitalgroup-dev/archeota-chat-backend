@@ -1,23 +1,15 @@
 from django.contrib import admin
-from django.urls import path, include
-
+from django.urls import path, include, re_path
+from accounts.views import GoogleLogin, GoogleLoginCallback, LoginPage
+from chat.views import ChatAPIView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('api/', include('chat.urls')),
-    path('auth/', include('accounts.urls')),
-
-
-    # --- Endpoints de dj-rest-auth ---
-    # Para login, logout, password reset (si también usas email/password vía dj-rest-auth)
-    # path('api/auth/', include('dj_rest_auth.urls')),
-    # Para registro email/password vía dj-rest-auth (si lo quieres junto a tu /api/register/)
-    # Puedes comentar esta línea si tu /api/register/ es el único método de registro email/pass.
-    # path('api/auth/registration/', include('dj_rest_auth.registration.urls')),
-
-    # --- Endpoint para Google Social Login vía dj-rest-auth ---
-    # Esta es la URL que tu cliente llamará después de obtener un token de Google.
-    # El `include('dj_rest_auth.social.urls_google')` debería funcionar si
-    # `dj-rest-auth[with_social]` está bien instalado y el provider de Google está en INSTALLED_APPS.
-    # path('api/auth/google/', include('dj_rest_auth.social.urls_google')),
+    path("login/", LoginPage.as_view(), name="login"),
+    path("api/v1/auth/", include("dj_rest_auth.urls")),
+    re_path(r"^api/v1/auth/accounts/", include("allauth.urls")),
+    path("api/v1/auth/registration/", include("dj_rest_auth.registration.urls")),
+    path("api/v1/auth/google/", GoogleLogin.as_view(), name="google_login"),
+    path("api/v1/auth/google/callback/", GoogleLoginCallback.as_view(), name="google_login_callback"),
+    path('api/v1/chat/', ChatAPIView.as_view(), name='chat_api')
 ]
