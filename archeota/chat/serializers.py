@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from .models import Asset
 
 
 class QuestionSerializer(serializers.Serializer):
@@ -14,3 +15,11 @@ class AnswerSerializer(serializers.Serializer):
     question = serializers.CharField(read_only=True)
     # El campo principal con la respuesta del agente
     answer = serializers.CharField(read_only=True)
+
+
+class AssetSerializer(serializers.ModelSerializer):
+    photo_url = serializers.ImageField(read_only=True, source='photo') # Opción para devolver la URL completa
+    
+    class Meta:
+        model = Asset
+        fields = '__all__' # Incluye todos los campos del modelo Asset

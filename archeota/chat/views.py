@@ -1,9 +1,9 @@
 import requests
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status 
-from .serializers import QuestionSerializer, AnswerSerializer
-from .models import AgentInteractionLog
+from rest_framework import status, viewsets
+from .serializers import QuestionSerializer, AnswerSerializer, AssetSerializer
+from .models import AgentInteractionLog, Asset
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
 
@@ -119,3 +119,23 @@ class ChatAPIView(APIView):
             {"message": "Por favor, use el método POST con un JSON {'question': 'su_pregunta'} para obtener una respuesta."},
             status=status.HTTP_405_METHOD_NOT_ALLOWED # Method Not Allowed
         )
+
+
+class AssetViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint que permite crear, leer, actualizar y borrar Assets.
+    Solo accesible por usuarios autenticados.
+    """
+    queryset = Asset.objects.all()
+    serializer_class = AssetSerializer
+    permission_classes = [IsAuthenticated] # Solo usuarios autenticados
+
+    # Opcional: Si tienes un campo 'owner' en el modelo Asset y quieres
+    # que se asigne automáticamente al usuario que crea el asset:
+    # def perform_create(self, serializer):
+    #     serializer.save(owner=self.request.user)
+
+    # Opcional: Si quieres que los usuarios solo vean/modifiquen sus propios assets
+    # (requiere el campo 'owner' en el modelo Asset):
+    # def get_queryset(self):
+    #     return Asset.objects.filter(owner=self.request.user)

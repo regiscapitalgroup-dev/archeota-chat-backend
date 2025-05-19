@@ -1,8 +1,15 @@
 from django.contrib import admin
 from django.urls import path, include, re_path
 from accounts.views import GoogleLogin, GoogleLoginCallback, LoginPage
-from chat.views import ChatAPIView
+from chat.views import ChatAPIView, AssetViewSet
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
+from django.conf import settings # Importar settings
+from django.conf.urls.static import static # Importar static
+from rest_framework.routers import DefaultRouter
+
+# Crea un router y registra nuestro viewset con él.
+router = DefaultRouter()
+router.register(r'assets', AssetViewSet, basename='asset') # 'assets' será el prefijo de la URL
 
 
 urlpatterns = [
@@ -18,5 +25,8 @@ urlpatterns = [
     # Optional UI:
     path('api/v1/schema/swagger-ui/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
     path('api/v1/schema/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
-
+    path('api/v1/', include(router.urls)),
 ]
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

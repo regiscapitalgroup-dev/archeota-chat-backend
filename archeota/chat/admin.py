@@ -1,5 +1,6 @@
 from django.contrib import admin
-from chat.models import AgentInteractionLog 
+from .models import AgentInteractionLog, Asset 
 
 
 admin.site.register(AgentInteractionLog)
+admin.site.register(Asset)
