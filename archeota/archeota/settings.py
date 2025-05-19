@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     "allauth.socialaccount",
     "allauth.socialaccount.providers.google",
     "dj_rest_auth.registration",
+    'drf_spectacular',
     "accounts",
     "chat",
 ]
@@ -144,8 +145,14 @@ SITE_ID = 1
 
 # djangorestframework
 REST_FRAMEWORK = {
-    "DEFAULT_AUTHENTICATION_CLASSES": ("dj_rest_auth.jwt_auth.JWTCookieAuthentication",)
+    "DEFAULT_AUTHENTICATION_CLASSES": ("dj_rest_auth.jwt_auth.JWTCookieAuthentication",),
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
+
+AUTHENTICATION_BACKENDS = (
+    "django.contrib.auth.backends.ModelBackend",
+    "allauth.account.auth_backends.AuthenticationBackend"
+)
 
 # djangorestframework-simplejwt
 SIMPLE_JWT = {
@@ -191,4 +198,12 @@ SOCIALACCOUNT_PROVIDERS = {
             "access_type": "online",
         },
     }
+}
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Your Project API',
+    'DESCRIPTION': 'Your project description',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    # OTHER SETTINGS
 }

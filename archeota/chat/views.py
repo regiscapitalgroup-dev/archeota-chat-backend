@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from rest_framework import status 
 from .serializers import QuestionSerializer, AnswerSerializer
 from .models import AgentInteractionLog
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 
 
 AGENT_API_URL = "http://35.92.83.198:5678/webhook/ArcheotaAgent"
@@ -12,7 +12,7 @@ REQUEST_TIMEOUT = 20
 
 
 class ChatAPIView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
         question_serializer = QuestionSerializer(data=request.data)
@@ -88,8 +88,9 @@ class ChatAPIView(APIView):
 
             print(f"Error inesperado en ChatAPIView: {e_general}")
         try:
+            authenticated_user = request.user
             AgentInteractionLog.objects.create(
-                # user=authenticated_user,
+                user=authenticated_user,
                 question_text=user_question,
                 answer_text=actual_agent_response_or_error, 
                 is_successful=interaction_successful_flag,
