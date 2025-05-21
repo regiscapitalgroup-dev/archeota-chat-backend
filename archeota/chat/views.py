@@ -1,13 +1,15 @@
 import requests
+import uuid
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, viewsets
 from .serializers import QuestionSerializer, AnswerSerializer, AssetSerializer
-from .models import AgentInteractionLog, Asset
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from .models import AgentInteractionLog, Asset, ChatSession
+from rest_framework.permissions import IsAuthenticated
+from django.db import IntegrityError
 
 
-AGENT_API_URL = "http://35.92.83.198:5678/webhook/ArcheotaAgent"
+AGENT_API_URL = "http://35.92.83.198:5678/webhook/ArcheotaSpecialist"
 REQUEST_TIMEOUT = 20
 
 
@@ -20,20 +22,68 @@ class ChatAPIView(APIView):
             return Response(question_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         user_question = question_serializer.validated_data['question']
+        requested_session_id_str = question_serializer.validated_data.get('chat_session_id')
+        chat_session = None
 
-        agent_params = {'question': user_question}
-        agent_answer_text = "Error: No se recibió respuesta procesable del agente." # Default
+        if requested_session_id_str:
+            try:
+                # Intenta obtener la sesión existente para el usuario
+                chat_session, created = ChatSession.objects.get_or_create(
+                    session_id=requested_session_id_str,
+                    defaults={'user': request.user}
+                )
+                if not created and chat_session.user != request.user:
+                    # El UUID existe pero pertenece a otro usuario. Esto es un conflicto.
+                    # El cliente no debería poder "robar" o usar el session_id de otro.
+                    # Devolvemos un error. El cliente deberá iniciar una nueva sesión (sin session_id).
+                    return Response(
+                        {"error": "Conflicto de ID de sesión o ID no autorizado."},
+                        status=status.HTTP_409_CONFLICT # 409 Conflict es apropiado
+                    )
 
+                if not created:
+                    # Si la sesión ya existía y fue obtenida, actualizamos su actividad.
+                    chat_session.save() # Dispara auto_now en last_activity
+
+            except IntegrityError:
+                # Caso MUY raro: El cliente envió un UUID que ya existe globalmente (para OTRO usuario)
+                # Y la base de datos previno la creación duplicada debido a unique=True en session_id.
+                # (Este IntegrityError ocurriría si el user no estuviera en la parte de 'get' de get_or_create
+                # y solo en 'defaults', pero como está en 'get', la verificación anterior es más probable)
+                # Devolvemos un error para que el cliente sepa que este ID no se puede usar.
+                return Response(
+                    {"error": "El ID de sesión proporcionado no se puede usar. Intenta iniciar una nueva sesión."},
+                    status=status.HTTP_409_CONFLICT
+                )
+        else:
+            # No se proveyó ID de sesión, crear una nueva
+            chat_session = ChatSession.objects.create(user=request.user)
+        
+        # Opcional: si es la primera interacción de una sesión nueva, usar la pregunta como título
+        if chat_session.interactions.count() == 0 and not chat_session.title:
+            title_text = user_question[:60] + '...' if len(user_question) > 60 else user_question
+            chat_session.title = title_text
+            chat_session.save(update_fields=['title', 'last_activity'])
+
+
+        agent_response_text_for_client = "Error: No se recibió respuesta procesable del agente."
         actual_agent_response_or_error = None
         interaction_successful_flag = False
         error_message_for_log = None
+        status_code_for_response = status.HTTP_500_INTERNAL_SERVER_ERROR
+
         try:
+            if not requested_session_id_str:
+                agent_params = {'sesionid': '', 'question': user_question}
+            else:
+                agent_params = {'sesionid': requested_session_id_str, 'question': user_question}
+                
             response = requests.get(
                 AGENT_API_URL,
                 params=agent_params,
                 timeout=REQUEST_TIMEOUT
             )
-            
+
             response.raise_for_status()
 
             try:
@@ -87,10 +137,15 @@ class ChatAPIView(APIView):
             agent_answer_text_for_client = "Ocurrió un error inesperado."
 
             print(f"Error inesperado en ChatAPIView: {e_general}")
+
+        if error_message_for_log and not agent_response_text_for_client.startswith("Error:"):
+             agent_response_text_for_client = error_message_for_log
+        if not actual_agent_response_or_error: 
+            actual_agent_response_or_error = agent_response_text_for_client           
+        
         try:
-            authenticated_user = request.user
             AgentInteractionLog.objects.create(
-                user=authenticated_user,
+                chat_session=chat_session,
                 question_text=user_question,
                 answer_text=actual_agent_response_or_error, 
                 is_successful=interaction_successful_flag,
@@ -105,11 +160,18 @@ class ChatAPIView(APIView):
         if not interaction_successful_flag and error_message_for_log:
              return Response({"error": agent_answer_text_for_client, "detail": error_message_for_log}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-
-        response_data = {
-            'question': user_question,
-            'answer': agent_answer_text_for_client
-        }
+        if requested_session_id_str:
+            response_data = {
+                'question': user_question,
+                'answer': agent_answer_text_for_client,
+                'chat_session_id': requested_session_id_str
+            }
+        else:
+            response_data = {
+                'question': user_question,
+                'answer': agent_answer_text_for_client,
+                'chat_session_id': chat_session.session_id
+            }
 
         answer_serializer = AnswerSerializer(response_data)
         return Response(answer_serializer.data, status=status.HTTP_200_OK)
