@@ -1,5 +1,5 @@
 import requests
-import uuid
+import os
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, viewsets
@@ -9,7 +9,7 @@ from rest_framework.permissions import IsAuthenticated
 from django.db import IntegrityError
 
 
-AGENT_API_URL = "http://35.92.83.198:5678/webhook/ArcheotaSpecialist"
+AGENT_API_URL = os.getenv("AGENT_API_URL")
 REQUEST_TIMEOUT = 20
 
 
@@ -28,16 +28,12 @@ class ChatAPIView(APIView):
 
         if requested_session_id_str:
             try:
-                # Intenta obtener la sesión existente para el usuario
                 chat_session, created = ChatSession.objects.get_or_create(
                     session_id=requested_session_id_str,
                     defaults={'user': request.user}
                 )
                 if not created and chat_session.user != request.user:
-                    # El UUID existe pero pertenece a otro usuario. Esto es un conflicto.
-                    # El cliente no debería poder "robar" o usar el session_id de otro.
-                    # Devolvemos un error. El cliente deberá iniciar una nueva sesión (sin session_id).
-                    return Response(
+                   return Response(
                         {"error": "Conflicto de ID de sesión o ID no autorizado."},
                         status=status.HTTP_409_CONFLICT # 409 Conflict es apropiado
                     )
@@ -198,10 +194,10 @@ class AssetViewSet(viewsets.ModelViewSet):
 
     # Opcional: Si tienes un campo 'owner' en el modelo Asset y quieres
     # que se asigne automáticamente al usuario que crea el asset:
-    # def perform_create(self, serializer):
-    #     serializer.save(owner=self.request.user)
+    def perform_create(self, serializer):
+        serializer.save(owner=self.request.user)
 
     # Opcional: Si quieres que los usuarios solo vean/modifiquen sus propios assets
     # (requiere el campo 'owner' en el modelo Asset):
-    # def get_queryset(self):
-    #     return Asset.objects.filter(owner=self.request.user)
+    def get_queryset(self):
+        return Asset.objects.filter(owner=self.request.user)
