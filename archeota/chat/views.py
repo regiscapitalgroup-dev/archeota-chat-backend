@@ -18,6 +18,7 @@ class ChatAPIView(APIView):
 
     def post(self, request, *args, **kwargs):
         question_serializer = QuestionSerializer(data=request.data)
+
         if not question_serializer.is_valid():
             return Response(question_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -58,6 +59,8 @@ class ChatAPIView(APIView):
         else:
             # No se proveyó ID de sesión, crear una nueva
             chat_session = ChatSession.objects.create(user=request.user)
+            requested_session_id_str = chat_session.session_id
+
         
         # Opcional: si es la primera interacción de una sesión nueva, usar la pregunta como título
         if chat_session.interactions.count() == 0 and not chat_session.title:
@@ -73,10 +76,7 @@ class ChatAPIView(APIView):
         status_code_for_response = status.HTTP_500_INTERNAL_SERVER_ERROR
 
         try:
-            if not requested_session_id_str:
-                agent_params = {'sesionid': '', 'question': user_question}
-            else:
-                agent_params = {'sesionid': requested_session_id_str, 'question': user_question}
+            agent_params = {'sesionid': requested_session_id_str, 'question': user_question}
                 
             response = requests.get(
                 AGENT_API_URL,
@@ -97,6 +97,8 @@ class ChatAPIView(APIView):
                     interaction_successful_flag = True
                     agent_answer_text_for_client = actual_agent_response_or_error 
 
+                print(f"actual_agent_response_or_error: {actual_agent_response_or_error}")
+                print(f"agent_answer_text_for_client: {agent_answer_text_for_client}")
 
             except requests.exceptions.JSONDecodeError:
                 actual_agent_response_or_error = response.text
@@ -111,12 +113,14 @@ class ChatAPIView(APIView):
         except requests.exceptions.Timeout:
             error_message_for_log = "Timeout: La solicitud al agente externo excedió el tiempo límite."
             actual_agent_response_or_error = error_message_for_log 
-            agent_answer_text_for_client = error_message_for_log 
+            agent_answer_text_for_client = error_message_for_log
             return Response({"error": error_message_for_log}, status=status.HTTP_504_GATEWAY_TIMEOUT) 
+
         except requests.exceptions.ConnectionError:
             error_message_for_log = "Error de Conexión: No se pudo conectar con el servicio del agente externo."
             actual_agent_response_or_error = error_message_for_log
             agent_answer_text_for_client = error_message_for_log
+            
             return Response({"error": error_message_for_log}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         except requests.exceptions.HTTPError as e_http:
             error_message_for_log = f"Error del Agente: El servicio del agente devolvió un error HTTP {e_http.response.status_code}."
