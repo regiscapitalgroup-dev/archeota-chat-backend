@@ -19,7 +19,9 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['main.d2r4dlvkgqpbf1.amplifyapp.com', 'localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['main.d2r4dlvkgqpbf1.amplifyapp.com', 
+                 'http://archeota-chat-backend-e8799cd9ed08.herokuapp.com',
+                 'localhost', '127.0.0.1']
 
 
 # Application definition
