@@ -1,1 +1,1 @@
-web: archeota.wsgi
+web: gunicorn archeota.wsgi
