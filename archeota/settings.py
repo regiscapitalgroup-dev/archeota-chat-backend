@@ -23,6 +23,9 @@ ALLOWED_HOSTS = ['https://main.d2r4dlvkgqpbf1.amplifyapp.com',
                  'https://archeota-chat-backend-e8799cd9ed08.herokuapp.com',
                  'localhost', '127.0.0.1', '*']
 
+CSRF_TRUSTED_ORIGINS = [
+    'https://archeota-chat-backend-e8799cd9ed08.herokuapp.com',
+]
 
 # Application definition
 
