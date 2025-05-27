@@ -14,8 +14,8 @@ class AnswerSerializer(serializers.Serializer):
 
 
 class AssetSerializer(serializers.ModelSerializer):
-    photo_url = serializers.ImageField(read_only=True, source='photo') 
+    #photo_url = serializers.ImageField(read_only=True, source='photo') 
     
     class Meta:
         model = Asset
-        fields = '__all__' # Incluye todos los campos del modelo Asset
+        fields = 'name', 'value', 'value_over_time', 'photo', 'syntasis_summary', 'full_conversation_history',   # Incluye todos los campos del modelo Asset
