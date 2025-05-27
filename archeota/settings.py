@@ -36,22 +36,14 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    "django.contrib.sites",
     "corsheaders",
-    "django_extensions",
     "rest_framework",
     "rest_framework.authtoken",
-    "allauth",
-    "allauth.account",
-    "allauth.socialaccount",
-    "allauth.socialaccount.providers.google",
-    "dj_rest_auth.registration",
-    'drf_spectacular',
-    "accounts",
+    'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist', 
+    "users",
     "chat",
 ]
-
-SITE_ID = 1
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -64,7 +56,6 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'djangorestframework_camel_case.middleware.CamelCaseMiddleWare',
-    'allauth.account.middleware.AccountMiddleware',
 ]
 
 ROOT_URLCONF = 'archeota.urls'
@@ -90,18 +81,18 @@ WSGI_APPLICATION = 'archeota.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-#DATABASES = {
-#    'default': {
-#        'ENGINE': 'django.db.backends.sqlite3',
-#        'NAME': BASE_DIR / 'db.sqlite3',
-#    }
-#}
-
 DATABASES = {
-  'default': dj_database_url.config(
-       default=os.getenv('DATABASE_URL')
-    )
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+    }
 }
+
+#DATABASES = {
+#  'default': dj_database_url.config(
+#       default=os.getenv('DATABASE_URL')
+#    )
+#}
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
@@ -146,6 +137,9 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media' # BASE_DIR es tu directorio raíz del proyecto
 
 STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
     "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
     },
@@ -155,6 +149,8 @@ STORAGES = {
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+AUTH_USER_MODEL = 'users.CustomUser'
 
 # django-cors-headers
 if DEBUG:
@@ -166,14 +162,13 @@ else:
         "https://main.d2r4dlvkgqpbf1.amplifyapp.com",
     ]
 
-# django.contrib.sites
-SITE_ID = 1
 
 
 # djangorestframework
 REST_FRAMEWORK = {
-    "DEFAULT_AUTHENTICATION_CLASSES": ("dj_rest_auth.jwt_auth.JWTCookieAuthentication",),
-    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        ),
     'DEFAULT_RENDERER_CLASSES': (
         'djangorestframework_camel_case.render.CamelCaseJSONRenderer',
         'djangorestframework_camel_case.render.CamelCaseBrowsableAPIRenderer',
@@ -187,59 +182,38 @@ REST_FRAMEWORK = {
 
 AUTHENTICATION_BACKENDS = (
     "django.contrib.auth.backends.ModelBackend",
-    "allauth.account.auth_backends.AuthenticationBackend"
 )
 
 # djangorestframework-simplejwt
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(hours=2),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
+    "ACCESS_TOKEN_LIFETIME": timedelta(hours=2), # Duración del token de acceso
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),    # Duración del token de refresco
+    "ROTATE_REFRESH_TOKENS": False, # Si es True, cada vez que se refresca, se da un nuevo refresh token
+    "BLACKLIST_AFTER_ROTATION": True, # Si ROTATE_REFRESH_TOKENS es True, el viejo refresh token se añade a la blacklist
+    "UPDATE_LAST_LOGIN": True, # Actualiza el campo last_login del usuario al loguearse
+
+    "ALGORITHM": "HS256",
+    # "SIGNING_KEY": settings.SECRET_KEY, # Ya está por defecto
+    "AUTH_HEADER_TYPES": ("Bearer",), # Tipo de cabecera de autenticación
+    "USER_ID_FIELD": "id", # Campo del modelo de usuario para el user_id en el token
+    "USER_ID_CLAIM": "user_id", # Nombre del claim para el user_id
 }
 
 # dj-rest-auth
 REST_AUTH = {
-    "USE_JWT": True,
-    "JWT_AUTH_COOKIE": "_auth",
-    "JWT_AUTH_REFRESH_COOKIE": "_refresh",
-    "JWT_AUTH_HTTPONLY": False,  # Makes sure refresh token is sent
+    'USE_JWT': True, # Indispensable para usar JWT
+    'JWT_AUTH_HTTPONLY': False, # True: El token no es accesible por JS en el cliente (más seguro si usas cookies)
+                                # False: El token es accesible por JS (necesario si no usas cookies y manejas tokens en JS)
+    'JWT_AUTH_COOKIE': 'access-token',          # Nombre de la cookie para el token de acceso
+    'JWT_AUTH_REFRESH_COOKIE': 'refresh-token', # Nombre de la cookie para el token de refresco
+    'SESSION_LOGIN': False, # Deshabilitar login por sesión si solo usas JWT
+
+    # Serializers personalizados
+    'USER_DETAILS_SERIALIZER': 'users.serializers.CustomUserDetailsSerializer',
+    'REGISTER_SERIALIZER': 'users.serializers.CustomRegisterSerializer',
+    # 'LOGIN_SERIALIZER': 'dj_rest_auth.serializers.LoginSerializer', # El default funciona bien con email
+    
+    # Para que el registro devuelva el usuario y los tokens
+    'REGISTER_VIEW_SETS_USER_DETAILS': True, 
 }
 
-# django-allauth
-ACCOUNT_AUTHENTICATION_METHOD = "email"  # Use Email / Password authentication
-ACCOUNT_USERNAME_REQUIRED = False
-ACCOUNT_EMAIL_REQUIRED = True
-ACCOUNT_EMAIL_VERIFICATION = "none"  # Do not require email confirmation
-
-
-# django-allauth social
-GOOGLE_OAUTH_CLIENT_ID = os.getenv("GOOGLE_OAUTH_CLIENT_ID")
-GOOGLE_OAUTH_CLIENT_SECRET = os.getenv("GOOGLE_OAUTH_CLIENT_SECRET")
-GOOGLE_OAUTH_CALLBACK_URL = os.getenv("GOOGLE_OAUTH_CALLBACK_URL")
-
-# Authenticate if local account with this email address already exists
-SOCIALACCOUNT_EMAIL_AUTHENTICATION = True
-# Connect local account and social account if local account with that email address already exists
-SOCIALACCOUNT_EMAIL_AUTHENTICATION_AUTO_CONNECT = True
-SOCIALACCOUNT_PROVIDERS = {
-    "google": {
-        "APPS": [
-            {
-                "client_id": GOOGLE_OAUTH_CLIENT_ID,
-                "secret": GOOGLE_OAUTH_CLIENT_SECRET,
-                "key": "",
-            },
-        ],
-        "SCOPE": ["profile", "email"],
-        "AUTH_PARAMS": {
-            "access_type": "online",
-        },
-    }
-}
-
-SPECTACULAR_SETTINGS = {
-    'TITLE': 'Your Project API',
-    'DESCRIPTION': 'Your project description',
-    'VERSION': '1.0.0',
-    'SERVE_INCLUDE_SCHEMA': False,
-    # OTHER SETTINGS
-}

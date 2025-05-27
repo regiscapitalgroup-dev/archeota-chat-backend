@@ -2,6 +2,8 @@ from django.contrib import admin
 from .models import AgentInteractionLog, Asset, ChatSession
 
 
+admin.site.register(Asset)
+
 @admin.register(ChatSession)
 class ChatSessionAdmin(admin.ModelAdmin):
     list_display = ('session_id', 'user_email', 'start_time', 'last_activity', 'title_shortened')
