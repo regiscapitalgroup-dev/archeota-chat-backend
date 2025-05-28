@@ -50,3 +50,12 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
         return self.email
 
     # Puedes añadir más métodos o propiedades a tu modelo si es necesario
+
+
+class GoogleProfile(models.Model):
+    user = models.OneToOneField(CustomUser, on_delete=models.CASCADE)
+    google_id = models.CharField(max_length=255, unique=True, blank=True, null=True)
+    # Add other fields if needed, e.g., picture URL
+
+    def __str__(self):
+        return f"Google Profile for {self.user.email}"

@@ -5,7 +5,8 @@ from .views import (
     UserCreateView,
     LoginView,
     UserDetailView,
-    LogoutView
+    LogoutView, 
+    GoogleLoginView
 )
 
 urlpatterns = [
@@ -14,7 +15,7 @@ urlpatterns = [
     path('login/', LoginView.as_view(), name='token-obtain-pair'), # login, obtiene access y refresh tokens
     path('login/refresh/', TokenRefreshView.as_view(), name='token-refresh'), # refresca el access token
     path('logout/', LogoutView.as_view(), name='user-logout'),
-
+    path('google-login/', GoogleLoginView.as_view(), name='google-login'),
     # Gestión de Usuario
     path('user/', UserDetailView.as_view(), name='user-detail'), # Obtiene detalles del usuario autenticado
 ]

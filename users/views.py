@@ -1,7 +1,14 @@
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework_simplejwt.views import TokenObtainPairView as SimpleJWTTokenObtainPairView
-# TokenRefreshView se usará directamente en urls.py
+from .serializers import GoogleAuthSerializer
+from rest_framework.authtoken.models import Token
+from django.contrib.auth import authenticate, login
+from google.oauth2 import id_token
+from rest_framework.views import APIView
+from django.conf import settings
+from google.auth.transport import requests
+
 
 from django.contrib.auth import get_user_model
 
@@ -55,3 +62,77 @@ class LogoutView(generics.GenericAPIView): # Para Logout
         serializer.is_valid(raise_exception=True)
         serializer.save() # Llama al método save del LogoutSerializer para invalidar el token
         return Response({"detail": "Logout exitoso."}, status=status.HTTP_200_OK)
+    
+
+class GoogleLoginView(APIView):
+    """
+    Handles Google ID Token verification and user authentication.
+    """
+    serializer_class = GoogleAuthSerializer
+
+    def post(self, request):
+        serializer = self.serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        id_token_str = serializer.validated_data['id_token']
+
+        try:
+            # Specify the CLIENT_ID of the app that accesses the backend:
+            # (THIS IS CRUCIAL) - Make sure this matches your FE's client ID.
+            idinfo = id_token.verify_oauth2_token(
+                id_token_str, requests.Request(), settings.GOOGLE_OAUTH_CLIENT_ID
+            )
+
+            # Or, if you need to verify against a list of client IDs:
+            # idinfo = id_token.verify_oauth2_token(id_token_str, requests.Request())
+            # if idinfo['aud'] not in [CLIENT_ID_1, CLIENT_ID_2, CLIENT_ID_3]:
+            #     raise ValueError('Could not verify audience.')
+
+            # ID token is valid. Get the user's Google ID and profile information.
+            userid = idinfo['sub']
+            email = idinfo['email']
+            first_name = idinfo.get('given_name', '')
+            last_name = idinfo.get('family_name', '')
+            name = idinfo.get('name', '') # Full name
+
+            # Find or create the user
+            try:
+                user = CustomUser.objects.get(email=email)
+            except CustomUser.DoesNotExist:
+                # Create a new user if not found
+                user = CustomUser.objects.create_user(
+                    email=email,
+                    username=email, # Or generate a unique username
+                    first_name=first_name,
+                    last_name=last_name,
+                    # password=User.objects.make_random_password() # Consider setting an unusable password
+                )
+                user.set_unusable_password() # Mark password as unusable for social logins
+                user.save()
+
+            # Optional: Link Google ID to user profile
+            # from .models import GoogleProfile
+            # google_profile, created = GoogleProfile.objects.get_or_create(user=user)
+            # google_profile.google_id = userid
+            # google_profile.save()
+
+            # Log the user in (optional, if you're using DRF's Token Authentication
+            # and not Django sessions)
+            # This part is more for session-based authentication or if you need to trigger signals.
+            # If using TokenAuthentication or JWT, you'll generate a token.
+            # login(request, user)
+
+            # Generate or retrieve authentication token for DRF
+            token, created = Token.objects.get_or_create(user=user)
+
+            return Response({
+                "message": "Login successful",
+                "user_id": user.id,
+                "email": user.email,
+                "token": token.key, # Return the token to the frontend
+            }, status=status.HTTP_200_OK)
+
+        except ValueError as e:
+            # Invalid token
+            return Response({"error": f"Invalid Google ID Token: {e}"}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({"error": f"An unexpected error occurred: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

@@ -77,3 +77,7 @@ class LogoutSerializer(serializers.Serializer): # Para Logout
             RefreshToken(self.token).blacklist()
         except Exception: # Captura una excepción más genérica si TokenError no es suficiente
             self.fail('bad_token')
+
+
+class GoogleAuthSerializer(serializers.Serializer):
+    id_token = serializers.CharField()
