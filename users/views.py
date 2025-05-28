@@ -2,13 +2,14 @@ from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework_simplejwt.views import TokenObtainPairView as SimpleJWTTokenObtainPairView
 from .serializers import GoogleAuthSerializer
+from .models import GoogleProfile
 from rest_framework.authtoken.models import Token
 from django.contrib.auth import authenticate, login
 from google.oauth2 import id_token
 from rest_framework.views import APIView
 from django.conf import settings
 from google.auth.transport import requests
-
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from django.contrib.auth import get_user_model
 
@@ -101,7 +102,7 @@ class GoogleLoginView(APIView):
                 # Create a new user if not found
                 user = CustomUser.objects.create_user(
                     email=email,
-                    username=email, # Or generate a unique username
+                    # username=email, # Or generate a unique username
                     first_name=first_name,
                     last_name=last_name,
                     # password=User.objects.make_random_password() # Consider setting an unusable password
@@ -111,9 +112,9 @@ class GoogleLoginView(APIView):
 
             # Optional: Link Google ID to user profile
             # from .models import GoogleProfile
-            # google_profile, created = GoogleProfile.objects.get_or_create(user=user)
-            # google_profile.google_id = userid
-            # google_profile.save()
+            google_profile, created = GoogleProfile.objects.get_or_create(user=user)
+            google_profile.google_id = userid
+            google_profile.save()
 
             # Log the user in (optional, if you're using DRF's Token Authentication
             # and not Django sessions)
@@ -123,12 +124,17 @@ class GoogleLoginView(APIView):
 
             # Generate or retrieve authentication token for DRF
             token, created = Token.objects.get_or_create(user=user)
+            
+            refresh_token_obj = RefreshToken.for_user(user)
 
             return Response({
                 "message": "Login successful",
                 "user_id": user.id,
                 "email": user.email,
-                "token": token.key, # Return the token to the frontend
+                #"token": token.key, # Return the token to the frontend
+                "access": str(refresh_token_obj.access_token),
+                "refresh": str(refresh_token_obj), 
+
             }, status=status.HTTP_200_OK)
 
         except ValueError as e:
