@@ -4,7 +4,7 @@ from rest_framework.views import APIView
 from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
 from rest_framework import status
-from .serializers import (QuestionSerializer, AnswerSerializer, AssetPlainSerializer, 
+from .serializers import (QuestionSerializer, AnswerSerializer, AssetSerializer, 
 ChatSessionSerializer, AgentInteractionLogSerializer)
 from .models import AgentInteractionLog, Asset, ChatSession
 from rest_framework.permissions import IsAuthenticated
@@ -206,52 +206,68 @@ class UserChatSessionListView(ListAPIView):
 
 
 class AssetAPIView(APIView):
-    parser_classes = (MultiPartParser, FormParser) # Para ImageField
-    permission_classes = [IsAuthenticated] # Ejemplo
+    parser_classes = (MultiPartParser, FormParser)
+    permission_classes = [IsAuthenticated] # Esencial si usas request.user
 
     def get(self, request, pk=None, format=None):
-        """
-        Visualiza la lista de assets pertenecientes al usuario actual
-        o los detalles de un asset específico si el usuario es el propietario.
-        """
+        # (Asumiendo que tu GET sigue filtrando por owner si es necesario)
         if pk:
-            # Obtener el asset específico
-            # Asegurarse de que el asset pertenece al usuario que hace la petición
+            # Solo el propietario puede ver el detalle
             asset = get_object_or_404(Asset, pk=pk, owner=request.user)
-            serializer = AssetPlainSerializer(asset, context={'request': request})
+            serializer = AssetSerializer(asset, context={'request': request})
             return Response(serializer.data)
         else:
             # Listar solo los assets del usuario autenticado
             assets = Asset.objects.filter(owner=request.user)
-            serializer = AssetPlainSerializer(assets, many=True, context={'request': request})
+            serializer = AssetSerializer(assets, many=True, context={'request': request})
             return Response(serializer.data)
-        
+
     def post(self, request, format=None):
-        serializer = AssetPlainSerializer(data=request.data, context={'request': request})
+        """
+        Registra un nuevo Asset. El 'owner' se asigna automáticamente.
+        """
+        serializer = AssetSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
-            # Si 'owner' no usa CurrentUserDefault y quieres asignarlo aquí:
+            # Asigna el owner automáticamente al usuario autenticado
             serializer.save(owner=request.user)
-            # Si 'owner' SÍ usa CurrentUserDefault() o ya está en request.data
-            # y es aceptado por PrimaryKeyRelatedField:
-            # serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def put(self, request, pk, format=None):
+        """
+        Edita un Asset existente. Solo el propietario puede editar.
+        """
         asset = get_object_or_404(Asset, pk=pk)
-        # Podrías añadir una comprobación de permisos aquí (ej: request.user == asset.owner)
-        serializer = AssetPlainSerializer(asset, data=request.data, partial=True, context={'request': request})
+
+        # Comprobación de permisos: solo el propietario puede editar
+        if asset.owner != request.user:
+            return Response(
+                {"detail": "No tienes permiso para editar este asset."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        serializer = AssetSerializer(asset, data=request.data, partial=True, context={'request': request})
         if serializer.is_valid():
+            # No es necesario pasar 'owner' aquí, ya que el propietario de un asset
+            # generalmente no cambia, o si lo hace, requiere una lógica especial.
+            # ModelSerializer se encargará de actualizar los otros campos.
             serializer.save()
-            return Response(serializer.data)
+            return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    # ... otros métodos (GET, DELETE)
 
     def delete(self, request, pk, format=None):
         """
-        Elimina un elemento existente.
+        Elimina un Asset existente. Solo el propietario puede eliminar.
         """
         asset = get_object_or_404(Asset, pk=pk)
+
+        # Comprobación de permisos
+        if asset.owner != request.user:
+            return Response(
+                {"detail": "No tienes permiso para eliminar este asset."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
         asset.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
