@@ -209,6 +209,23 @@ class AssetAPIView(APIView):
     parser_classes = (MultiPartParser, FormParser) # Para ImageField
     permission_classes = [IsAuthenticated] # Ejemplo
 
+    def get(self, request, pk=None, format=None):
+        """
+        Visualiza la lista de assets pertenecientes al usuario actual
+        o los detalles de un asset específico si el usuario es el propietario.
+        """
+        if pk:
+            # Obtener el asset específico
+            # Asegurarse de que el asset pertenece al usuario que hace la petición
+            asset = get_object_or_404(Asset, pk=pk, owner=request.user)
+            serializer = AssetPlainSerializer(asset, context={'request': request})
+            return Response(serializer.data)
+        else:
+            # Listar solo los assets del usuario autenticado
+            assets = Asset.objects.filter(owner=request.user)
+            serializer = AssetPlainSerializer(assets, many=True, context={'request': request})
+            return Response(serializer.data)
+        
     def post(self, request, format=None):
         serializer = AssetPlainSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
