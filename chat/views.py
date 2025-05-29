@@ -1,14 +1,17 @@
 import requests
 import os
 from rest_framework.views import APIView
+from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
-from rest_framework import status, viewsets
-from .serializers import QuestionSerializer, AnswerSerializer, AssetSerializer
+from rest_framework import status
+from .serializers import (QuestionSerializer, AnswerSerializer, AssetPlainSerializer, 
+ChatSessionSerializer, AgentInteractionLogSerializer)
 from .models import AgentInteractionLog, Asset, ChatSession
 from rest_framework.permissions import IsAuthenticated
 from django.db import IntegrityError
 from rest_framework.parsers import MultiPartParser, FormParser # Para subir imágenes
 from django.shortcuts import get_object_or_404
+import uuid
 
 
 AGENT_API_URL = os.getenv("AGENT_API_URL")
@@ -185,53 +188,47 @@ class ChatAPIView(APIView):
         )
 
 
-class AssetAPIView(APIView):
-    parser_classes = (MultiPartParser, FormParser) # Necesario para ImageField
-    permission_classes = [IsAuthenticated]
+class UserChatSessionListView(ListAPIView):
+    """
+    Endpoint para listar las sesiones de chat del usuario autenticado.
+    """
+    serializer_class = ChatSessionSerializer
+    permission_classes = [IsAuthenticated] # Solo usuarios autenticados pueden acceder
 
-    def get(self, request, pk=None, format=None):
+    def get_queryset(self):
         """
-        Visualiza la lista de todos los elementos o los detalles de un elemento específico.
+        Este método es sobrescrito para devolver una lista de sesiones
+        que pertenecen (están relacionadas con) el usuario actualmente autenticado.
         """
-        if pk:
-            print(pk)
-            asset = get_object_or_404(Asset, pk=pk, owner=request.user)
-            serializer = AssetSerializer(asset, context={'request': request})
-            return Response(serializer.data)
-        else:
-            assets = Asset.objects.filter(owner=request.user)
-            serializer = AssetSerializer(assets, many=True, context={'request': request})
-            return Response(serializer.data)
+        user = self.request.user
+        return ChatSession.objects.filter(user=user)
+
+
+
+class AssetAPIView(APIView):
+    parser_classes = (MultiPartParser, FormParser) # Para ImageField
+    permission_classes = [IsAuthenticated] # Ejemplo
 
     def post(self, request, format=None):
-        """
-        Registra un nuevo elemento.
-        """
-        serializer = AssetSerializer(data=request.data, context={'request': request})
+        serializer = AssetPlainSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
-            # Asignar el owner automáticamente al usuario autenticado si no se proporciona
-            if 'owner' not in serializer.validated_data and request.user.is_authenticated:
-                serializer.save(owner=request.user)
-            elif 'owner' in serializer.validated_data:
-                 serializer.save() # Si se proporciona 'owner' y es válido
-            else:
-                # Si el owner no se proporciona y el usuario no está autenticado
-                # O si el campo owner es explícitamente requerido y no se puede deducir
-                return Response({"owner": ["Este campo es requerido."]}, status=status.HTTP_400_BAD_REQUEST)
-
+            # Si 'owner' no usa CurrentUserDefault y quieres asignarlo aquí:
+            serializer.save(owner=request.user)
+            # Si 'owner' SÍ usa CurrentUserDefault() o ya está en request.data
+            # y es aceptado por PrimaryKeyRelatedField:
+            # serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def put(self, request, pk, format=None):
-        """
-        Edita un elemento existente.
-        """
         asset = get_object_or_404(Asset, pk=pk)
-        serializer = AssetSerializer(asset, data=request.data, context={'request': request}, partial=True) # partial=True para PATCH opcional
+        # Podrías añadir una comprobación de permisos aquí (ej: request.user == asset.owner)
+        serializer = AssetPlainSerializer(asset, data=request.data, partial=True, context={'request': request})
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    # ... otros métodos (GET, DELETE)
 
     def delete(self, request, pk, format=None):
         """
@@ -240,3 +237,30 @@ class AssetAPIView(APIView):
         asset = get_object_or_404(Asset, pk=pk)
         asset.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class ChatSessionInteractionListView(ListAPIView):
+    """
+    Endpoint para listar todas las interacciones de una ChatSession específica,
+    accesible solo por el propietario de la ChatSession.
+    """
+    serializer_class = AgentInteractionLogSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        """
+        Este método devuelve una lista de interacciones para una ChatSession específica,
+        verificando primero que la sesión pertenezca al usuario autenticado.
+        """
+        user = self.request.user
+        # Obtener el session_id (UUID) de los parámetros de la URL
+        # El nombre 'session_uuid' debe coincidir con el que definas en urls.py
+        session_uuid = self.kwargs.get('session_uuid')
+
+        # 1. Obtener la ChatSession específica, asegurándose de que pertenece al usuario actual.
+        # Esto previene que un usuario vea interacciones de sesiones de otros usuarios.
+        chat_session = get_object_or_404(ChatSession, session_id=session_uuid, user=user)
+
+        # 2. Filtrar las AgentInteractionLog que pertenecen a esa ChatSession.
+        # El ordenamiento definido en AgentInteractionLog.Meta ('-timestamp') se aplicará.
+        return AgentInteractionLog.objects.filter(chat_session=chat_session)
