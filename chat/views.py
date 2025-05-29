@@ -7,6 +7,8 @@ from .serializers import QuestionSerializer, AnswerSerializer, AssetSerializer
 from .models import AgentInteractionLog, Asset, ChatSession
 from rest_framework.permissions import IsAuthenticated
 from django.db import IntegrityError
+from rest_framework.parsers import MultiPartParser, FormParser # Para subir imágenes
+from django.shortcuts import get_object_or_404
 
 
 AGENT_API_URL = os.getenv("AGENT_API_URL")
@@ -183,21 +185,58 @@ class ChatAPIView(APIView):
         )
 
 
-class AssetViewSet(viewsets.ModelViewSet):
-    """
-    API endpoint que permite crear, leer, actualizar y borrar Assets.
-    Solo accesible por usuarios autenticados.
-    """
-    queryset = Asset.objects.all()
-    serializer_class = AssetSerializer
-    permission_classes = [IsAuthenticated] # Solo usuarios autenticados
+class AssetAPIView(APIView):
+    parser_classes = (MultiPartParser, FormParser) # Necesario para ImageField
+    permission_classes = [IsAuthenticated]
 
-    # Opcional: Si tienes un campo 'owner' en el modelo Asset y quieres
-    # que se asigne automáticamente al usuario que crea el asset:
-    def perform_create(self, serializer):
-        serializer.save(owner=self.request.user)
+    def get(self, request, pk=None, format=None):
+        """
+        Visualiza la lista de todos los elementos o los detalles de un elemento específico.
+        """
+        if pk:
+            print(pk)
+            asset = get_object_or_404(Asset, pk=pk, owner=request.user)
+            serializer = AssetSerializer(asset, context={'request': request})
+            return Response(serializer.data)
+        else:
+            assets = Asset.objects.filter(owner=request.user)
+            serializer = AssetSerializer(assets, many=True, context={'request': request})
+            return Response(serializer.data)
 
-    # Opcional: Si quieres que los usuarios solo vean/modifiquen sus propios assets
-    # (requiere el campo 'owner' en el modelo Asset):
-    def get_queryset(self):
-        return Asset.objects.filter(owner=self.request.user)
+    def post(self, request, format=None):
+        """
+        Registra un nuevo elemento.
+        """
+        serializer = AssetSerializer(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            # Asignar el owner automáticamente al usuario autenticado si no se proporciona
+            if 'owner' not in serializer.validated_data and request.user.is_authenticated:
+                serializer.save(owner=request.user)
+            elif 'owner' in serializer.validated_data:
+                 serializer.save() # Si se proporciona 'owner' y es válido
+            else:
+                # Si el owner no se proporciona y el usuario no está autenticado
+                # O si el campo owner es explícitamente requerido y no se puede deducir
+                return Response({"owner": ["Este campo es requerido."]}, status=status.HTTP_400_BAD_REQUEST)
+
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def put(self, request, pk, format=None):
+        """
+        Edita un elemento existente.
+        """
+        asset = get_object_or_404(Asset, pk=pk)
+        serializer = AssetSerializer(asset, data=request.data, context={'request': request}, partial=True) # partial=True para PATCH opcional
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, pk, format=None):
+        """
+        Elimina un elemento existente.
+        """
+        asset = get_object_or_404(Asset, pk=pk)
+        asset.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
