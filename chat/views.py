@@ -39,7 +39,7 @@ class ChatAPIView(APIView):
                 )
                 if not created and chat_session.user != request.user:
                    return Response(
-                        {"error": "Conflicto de ID de sesión o ID no autorizado."},
+                        {"error": "Session ID conflict or unauthorized ID."},
                         status=status.HTTP_409_CONFLICT # 409 Conflict es apropiado
                     )
 
@@ -54,7 +54,7 @@ class ChatAPIView(APIView):
                 # y solo en 'defaults', pero como está en 'get', la verificación anterior es más probable)
                 # Devolvemos un error para que el cliente sepa que este ID no se puede usar.
                 return Response(
-                    {"error": "El ID de sesión proporcionado no se puede usar. Intenta iniciar una nueva sesión."},
+                    {"error": "The provided session ID cannot be used. Please try starting a new session."},
                     status=status.HTTP_409_CONFLICT
                 )
         else:
@@ -70,7 +70,7 @@ class ChatAPIView(APIView):
             chat_session.save(update_fields=['title', 'last_activity'])
 
 
-        agent_response_text_for_client = "Error: No se recibió respuesta procesable del agente."
+        agent_response_text_for_client = "Error: No actionable response was received from the agent."
         actual_agent_response_or_error = None
         interaction_successful_flag = False
         error_message_for_log = None
@@ -108,23 +108,23 @@ class ChatAPIView(APIView):
             
             except Exception as e_parse: 
                 actual_agent_response_or_error = response.text 
-                error_message_for_log = f"Error parseando JSON de agente: {e_parse}"
-                agent_answer_text_for_client = "Error procesando respuesta del agente." 
+                error_message_for_log = f"Error parsing agent JSON: {e_parse}"
+                agent_answer_text_for_client = "Error processing agent response." 
 
         except requests.exceptions.Timeout:
-            error_message_for_log = "Timeout: La solicitud al agente externo excedió el tiempo límite."
+            error_message_for_log = "Timeout: The request to the external agent exceeded the time limit."
             actual_agent_response_or_error = error_message_for_log 
             agent_answer_text_for_client = error_message_for_log
             return Response({"error": error_message_for_log}, status=status.HTTP_504_GATEWAY_TIMEOUT) 
 
         except requests.exceptions.ConnectionError:
-            error_message_for_log = "Error de Conexión: No se pudo conectar con el servicio del agente externo."
+            error_message_for_log = "Connection Error: Could not connect to the external agent service"
             actual_agent_response_or_error = error_message_for_log
             agent_answer_text_for_client = error_message_for_log
             
             return Response({"error": error_message_for_log}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         except requests.exceptions.HTTPError as e_http:
-            error_message_for_log = f"Error del Agente: El servicio del agente devolvió un error HTTP {e_http.response.status_code}."
+            error_message_for_log = f"Agent Error: The agent service returned an HTTP error {e_http.response.status_code}."
             try: 
                 actual_agent_response_or_error = e_http.response.text
             except:
@@ -132,16 +132,16 @@ class ChatAPIView(APIView):
             agent_answer_text_for_client = error_message_for_log
             return Response({"error": error_message_for_log, "agent_response": actual_agent_response_or_error}, status=status.HTTP_502_BAD_GATEWAY)
         except requests.exceptions.RequestException as e_req:
-            error_message_for_log = f"Error de Red/Solicitud: {e_req}"
+            error_message_for_log = f"Network/Request Error: {e_req}"
             actual_agent_response_or_error = error_message_for_log
             agent_answer_text_for_client = error_message_for_log
             return Response({"error": error_message_for_log}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         except Exception as e_general:
-            error_message_for_log = f"Error Interno del Servidor Inesperado: {e_general}"
+            error_message_for_log = f"Unexpected Internal Server Error: {e_general}"
             actual_agent_response_or_error = error_message_for_log
-            agent_answer_text_for_client = "Ocurrió un error inesperado."
+            agent_answer_text_for_client = "Unexpected Internal Server Error"
 
-            print(f"Error inesperado en ChatAPIView: {e_general}")
+            print(f"Unexpected Internal Server Error in ChatAPIView: {e_general}")
 
         if error_message_for_log and not agent_response_text_for_client.startswith("Error:"):
              agent_response_text_for_client = error_message_for_log
@@ -157,7 +157,7 @@ class ChatAPIView(APIView):
                 error_message=error_message_for_log 
             )
         except Exception as e_log:
-            print(f"ERROR CRÍTICO: No se pudo guardar AgentInteractionLog: {e_log}")
+            print(f"CRITICAL ERROR: Could not save AgentInteractionLog: {e_log}")
             # import logging
             # logger = logging.getLogger(__name__)
             # logger.error(f"Failed to save AgentInteractionLog: {e_log}", exc_info=True)
@@ -183,23 +183,16 @@ class ChatAPIView(APIView):
 
     def get(self, request, *args, **kwargs):
         return Response(
-            {"message": "Por favor, use el método POST con un JSON {'question': 'su_pregunta'} para obtener una respuesta."},
+            {"message": "Please use the POST method with a JSON {'question': 'your_question'} to get a response."},
             status=status.HTTP_405_METHOD_NOT_ALLOWED # Method Not Allowed
         )
 
 
 class UserChatSessionListView(ListAPIView):
-    """
-    Endpoint para listar las sesiones de chat del usuario autenticado.
-    """
     serializer_class = ChatSessionSerializer
-    permission_classes = [IsAuthenticated] # Solo usuarios autenticados pueden acceder
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        """
-        Este método es sobrescrito para devolver una lista de sesiones
-        que pertenecen (están relacionadas con) el usuario actualmente autenticado.
-        """
         user = self.request.user
         return ChatSession.objects.filter(user=user)
 
@@ -223,9 +216,6 @@ class AssetAPIView(APIView):
             return Response(serializer.data)
 
     def post(self, request, format=None):
-        """
-        Registra un nuevo Asset. El 'owner' se asigna automáticamente.
-        """
         serializer = AssetSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
             # Asigna el owner automáticamente al usuario autenticado
@@ -234,37 +224,28 @@ class AssetAPIView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def put(self, request, pk, format=None):
-        """
-        Edita un Asset existente. Solo el propietario puede editar.
-        """
         asset = get_object_or_404(Asset, pk=pk)
 
         # Comprobación de permisos: solo el propietario puede editar
         if asset.owner != request.user:
             return Response(
-                {"detail": "No tienes permiso para editar este asset."},
+                {"detail": "You do not have permission to edit this asset."},
                 status=status.HTTP_403_FORBIDDEN
             )
 
         serializer = AssetSerializer(asset, data=request.data, partial=True, context={'request': request})
         if serializer.is_valid():
-            # No es necesario pasar 'owner' aquí, ya que el propietario de un asset
-            # generalmente no cambia, o si lo hace, requiere una lógica especial.
-            # ModelSerializer se encargará de actualizar los otros campos.
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, pk, format=None):
-        """
-        Elimina un Asset existente. Solo el propietario puede eliminar.
-        """
         asset = get_object_or_404(Asset, pk=pk)
 
         # Comprobación de permisos
         if asset.owner != request.user:
             return Response(
-                {"detail": "No tienes permiso para eliminar este asset."},
+                {"detail": "You do not have permission to delete this asset."},
                 status=status.HTTP_403_FORBIDDEN
             )
         
@@ -273,27 +254,11 @@ class AssetAPIView(APIView):
 
 
 class ChatSessionInteractionListView(ListAPIView):
-    """
-    Endpoint para listar todas las interacciones de una ChatSession específica,
-    accesible solo por el propietario de la ChatSession.
-    """
     serializer_class = AgentInteractionLogSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        """
-        Este método devuelve una lista de interacciones para una ChatSession específica,
-        verificando primero que la sesión pertenezca al usuario autenticado.
-        """
         user = self.request.user
-        # Obtener el session_id (UUID) de los parámetros de la URL
-        # El nombre 'session_uuid' debe coincidir con el que definas en urls.py
         session_uuid = self.kwargs.get('session_uuid')
-
-        # 1. Obtener la ChatSession específica, asegurándose de que pertenece al usuario actual.
-        # Esto previene que un usuario vea interacciones de sesiones de otros usuarios.
         chat_session = get_object_or_404(ChatSession, session_id=session_uuid, user=user)
-
-        # 2. Filtrar las AgentInteractionLog que pertenecen a esa ChatSession.
-        # El ordenamiento definido en AgentInteractionLog.Meta ('-timestamp') se aplicará.
         return AgentInteractionLog.objects.filter(chat_session=chat_session)
