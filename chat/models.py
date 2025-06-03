@@ -57,7 +57,7 @@ class Asset(models.Model):
     name = models.CharField(max_length=250)
     value = models.CharField(max_length=30)
     value_over_time = models.CharField(max_length=50)
-    photo = models.ImageField(upload_to='assets_photos/', null=False, blank=False)
+    photo = models.ImageField(upload_to='assets_photos/', null=True, blank=True)
     syntasis_summary = models.TextField(blank=True, null=True)
     full_conversation_history = models.TextField(blank=True, null=True)
     asset_date = models.DateField(null=True, blank=True, auto_now=True)

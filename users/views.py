@@ -4,7 +4,6 @@ from rest_framework_simplejwt.views import TokenObtainPairView as SimpleJWTToken
 from .serializers import GoogleAuthSerializer
 from .models import GoogleProfile
 from rest_framework.authtoken.models import Token
-from django.contrib.auth import authenticate, login
 from google.oauth2 import id_token
 from rest_framework.views import APIView
 from django.conf import settings
@@ -14,61 +13,44 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
 
 from .serializers import (
-    CustomUserSerializer, # Para registro
+    CustomUserSerializer, 
     UserDetailSerializer,
-    CustomTokenObtainPairSerializer, # Para login personalizado
+    CustomTokenObtainPairSerializer, 
     LogoutSerializer
 )
 
 CustomUser = get_user_model()
 
-class UserCreateView(generics.CreateAPIView): # Para Registro
-    """
-    Vista para crear nuevos usuarios. Devuelve datos del usuario y tokens.
-    """
+class UserCreateView(generics.CreateAPIView): 
     serializer_class = CustomUserSerializer
-    permission_classes = [permissions.AllowAny] # Cualquiera puede registrarse
+    permission_classes = [permissions.AllowAny] 
 
 
-class LoginView(SimpleJWTTokenObtainPairView): # Para Login
-    """
-    Vista para el login de usuarios. Utiliza el serializer personalizado
-    para devolver tokens y datos del usuario.
-    """
+class LoginView(SimpleJWTTokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
 
 
-class UserDetailView(generics.RetrieveAPIView): # Para Detalles del Usuario
-    """
-    Vista para obtener los detalles del usuario autenticado.
-    """
-    queryset = CustomUser.objects.all() # Necesario para RetrieveAPIView
+class UserDetailView(generics.RetrieveAPIView): 
+    queryset = CustomUser.objects.all() 
     serializer_class = UserDetailSerializer
-    permission_classes = [permissions.IsAuthenticated] # Solo usuarios autenticados
+    permission_classes = [permissions.IsAuthenticated] 
 
     def get_object(self):
-        # Devuelve el usuario actualmente autenticado
         return self.request.user
 
 
-class LogoutView(generics.GenericAPIView): # Para Logout
-    """
-    Vista para el logout de usuarios. Añade el refresh token a la blacklist.
-    """
+class LogoutView(generics.GenericAPIView): 
     serializer_class = LogoutSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        serializer.save() # Llama al método save del LogoutSerializer para invalidar el token
-        return Response({"detail": "Logout exitoso."}, status=status.HTTP_200_OK)
+        serializer.save() 
+        return Response({"detail": "Successful logout."}, status=status.HTTP_200_OK)
     
 
 class GoogleLoginView(APIView):
-    """
-    Handles Google ID Token verification and user authentication.
-    """
     serializer_class = GoogleAuthSerializer
 
     def post(self, request):
@@ -77,8 +59,6 @@ class GoogleLoginView(APIView):
         id_token_str = serializer.validated_data['id_token']
 
         try:
-            # Specify the CLIENT_ID of the app that accesses the backend:
-            # (THIS IS CRUCIAL) - Make sure this matches your FE's client ID.
             idinfo = id_token.verify_oauth2_token(
                 id_token_str, requests.Request(), settings.GOOGLE_OAUTH_CLIENT_ID
             )
@@ -116,12 +96,6 @@ class GoogleLoginView(APIView):
             google_profile.google_id = userid
             google_profile.save()
 
-            # Log the user in (optional, if you're using DRF's Token Authentication
-            # and not Django sessions)
-            # This part is more for session-based authentication or if you need to trigger signals.
-            # If using TokenAuthentication or JWT, you'll generate a token.
-            # login(request, user)
-
             # Generate or retrieve authentication token for DRF
             token, created = Token.objects.get_or_create(user=user)
             
@@ -131,7 +105,6 @@ class GoogleLoginView(APIView):
                 "message": "Login successful",
                 "user_id": user.id,
                 "email": user.email,
-                #"token": token.key, # Return the token to the frontend
                 "access": str(refresh_token_obj.access_token),
                 "refresh": str(refresh_token_obj), 
 

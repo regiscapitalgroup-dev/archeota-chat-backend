@@ -9,9 +9,8 @@ ChatSessionSerializer, AgentInteractionLogSerializer)
 from .models import AgentInteractionLog, Asset, ChatSession
 from rest_framework.permissions import IsAuthenticated
 from django.db import IntegrityError
-from rest_framework.parsers import MultiPartParser, FormParser # Para subir imágenes
+from rest_framework.parsers import MultiPartParser, FormParser 
 from django.shortcuts import get_object_or_404
-import uuid
 
 
 AGENT_API_URL = os.getenv("AGENT_API_URL")
@@ -48,11 +47,6 @@ class ChatAPIView(APIView):
                     chat_session.save() # Dispara auto_now en last_activity
 
             except IntegrityError:
-                # Caso MUY raro: El cliente envió un UUID que ya existe globalmente (para OTRO usuario)
-                # Y la base de datos previno la creación duplicada debido a unique=True en session_id.
-                # (Este IntegrityError ocurriría si el user no estuviera en la parte de 'get' de get_or_create
-                # y solo en 'defaults', pero como está en 'get', la verificación anterior es más probable)
-                # Devolvemos un error para que el cliente sepa que este ID no se puede usar.
                 return Response(
                     {"error": "The provided session ID cannot be used. Please try starting a new session."},
                     status=status.HTTP_409_CONFLICT
@@ -62,8 +56,6 @@ class ChatAPIView(APIView):
             chat_session = ChatSession.objects.create(user=request.user)
             requested_session_id_str = chat_session.session_id
 
-        
-        # Opcional: si es la primera interacción de una sesión nueva, usar la pregunta como título
         if chat_session.interactions.count() == 0 and not chat_session.title:
             title_text = user_question[:60] + '...' if len(user_question) > 60 else user_question
             chat_session.title = title_text
@@ -97,9 +89,6 @@ class ChatAPIView(APIView):
                 if actual_agent_response_or_error is not None:
                     interaction_successful_flag = True
                     agent_answer_text_for_client = actual_agent_response_or_error 
-
-                print(f"actual_agent_response_or_error: {actual_agent_response_or_error}")
-                print(f"agent_answer_text_for_client: {agent_answer_text_for_client}")
 
             except requests.exceptions.JSONDecodeError:
                 actual_agent_response_or_error = response.text
@@ -158,9 +147,6 @@ class ChatAPIView(APIView):
             )
         except Exception as e_log:
             print(f"CRITICAL ERROR: Could not save AgentInteractionLog: {e_log}")
-            # import logging
-            # logger = logging.getLogger(__name__)
-            # logger.error(f"Failed to save AgentInteractionLog: {e_log}", exc_info=True)
         
         if not interaction_successful_flag and error_message_for_log:
              return Response({"error": agent_answer_text_for_client, "detail": error_message_for_log}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
