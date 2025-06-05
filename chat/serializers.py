@@ -10,9 +10,13 @@ class QuestionSerializer(serializers.Serializer):
     chat_session_id = serializers.UUIDField(required=False, allow_null=True, format='hex_verbose')
 
 
+class AdditionalQuestionSerializer(serializers.Serializer):
+    question = serializers.CharField(max_length=500)
+
+
 class AnswerSerializer(serializers.Serializer):
-    question = serializers.CharField(read_only=True)
-    answer = serializers.CharField(read_only=True)
+    general_response = serializers.CharField()
+    additional_questions = AdditionalQuestionSerializer(many=True)
     chat_session_id = serializers.UUIDField(read_only=True, format='hex_verbose')
 
 
@@ -63,14 +67,14 @@ class ChatSessionSerializer(serializers.ModelSerializer):
 
 class AgentInteractionLogSerializer(serializers.ModelSerializer):
     # Opcional: Si quieres mostrar algún detalle de chat_session además de su ID
-    chat_session_uuid = serializers.UUIDField(source='chat_session.session_id', read_only=True)
+    # chat_session_uuid = serializers.UUIDField(source='chat_session.session_id', read_only=True)
 
     class Meta:
         model = AgentInteractionLog
         fields = [
             'id',
             'chat_session', # Por defecto, mostrará el ID de ChatSession
-            'chat_session_uuid', # Si añadiste el campo arriba
+            # 'chat_session_uuid', # Si añadiste el campo arriba
             'question_text',
             'answer_text',
             'timestamp',

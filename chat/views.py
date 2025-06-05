@@ -11,6 +11,7 @@ from rest_framework.permissions import IsAuthenticated
 from django.db import IntegrityError
 from rest_framework.parsers import MultiPartParser, FormParser 
 from django.shortcuts import get_object_or_404
+import json
 
 
 AGENT_API_URL = os.getenv("AGENT_API_URL")
@@ -82,7 +83,11 @@ class ChatAPIView(APIView):
             try:
                 api_data = response.json()
                 if 'output' in api_data: 
-                    actual_agent_response_or_error = api_data['output']
+                    r = api_data['output']
+                    json_string = r.strip("```json\n").strip("```")
+                    json_data = json.loads(json_string)
+                    actual_agent_response_or_error = json_data['general_response']
+
                 else: 
                     actual_agent_response_or_error = response.text
 
@@ -153,17 +158,18 @@ class ChatAPIView(APIView):
 
         if requested_session_id_str:
             response_data = {
-                'question': user_question,
-                'answer': agent_answer_text_for_client,
+                'general_response': json_data['general_response'],
+                'additional_questions': json_data['additional_questions'],
                 'chat_session_id': requested_session_id_str
             }
         else:
             response_data = {
-                'question': user_question,
-                'answer': agent_answer_text_for_client,
+                'general_response': json_data['general_response'],
+                'additional_questions': json_data['additional_questions'],
                 'chat_session_id': chat_session.session_id
             }
-
+            
+        #print(json_data)
         answer_serializer = AnswerSerializer(response_data)
         return Response(answer_serializer.data, status=status.HTTP_200_OK)
 
