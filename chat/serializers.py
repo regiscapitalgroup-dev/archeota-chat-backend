@@ -73,8 +73,7 @@ class AgentInteractionLogSerializer(serializers.ModelSerializer):
         model = AgentInteractionLog
         fields = [
             'id',
-            'chat_session', # Por defecto, mostrará el ID de ChatSession
-            # 'chat_session_uuid', # Si añadiste el campo arriba
+            'chat_session',
             'question_text',
             'answer_text',
             'timestamp',

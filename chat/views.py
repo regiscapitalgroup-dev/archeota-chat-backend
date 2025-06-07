@@ -65,6 +65,7 @@ class ChatAPIView(APIView):
 
         agent_response_text_for_client = "Error: No actionable response was received from the agent."
         actual_agent_response_or_error = None
+        additional_questions = None
         interaction_successful_flag = False
         error_message_for_log = None
         status_code_for_response = status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -84,12 +85,21 @@ class ChatAPIView(APIView):
                 api_data = response.json()
                 if 'output' in api_data: 
                     r = api_data['output']
-                    json_string = r.strip("```json\n").strip("```")
-                    json_data = json.loads(json_string)
-                    actual_agent_response_or_error = json_data['general_response']
+                    if r.startswith("```json"):
+                        json_string = r.strip("```json\n").strip("```")
+                        json_data = json.loads(json_string)
+                        actual_agent_response_or_error = json_data['general_response']
+                        additional_questions = json_data['additional_questions']
+                    else:
+                        actual_agent_response_or_error = r
+                        additional_questions = []
+                                 
+                    if not actual_agent_response_or_error:
+                        actual_agent_response_or_error = r
 
                 else: 
                     actual_agent_response_or_error = response.text
+                    additional_questions = []
 
                 if actual_agent_response_or_error is not None:
                     interaction_successful_flag = True
@@ -156,21 +166,21 @@ class ChatAPIView(APIView):
         if not interaction_successful_flag and error_message_for_log:
              return Response({"error": agent_answer_text_for_client, "detail": error_message_for_log}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
         if requested_session_id_str:
             response_data = {
-                'general_response': json_data['general_response'],
-                'additional_questions': json_data['additional_questions'],
+                'general_response': actual_agent_response_or_error,
+                'additional_questions': additional_questions,
                 'chat_session_id': requested_session_id_str
             }
         else:
             response_data = {
-                'general_response': json_data['general_response'],
-                'additional_questions': json_data['additional_questions'],
+                'general_response': actual_agent_response_or_error,
+                'additional_questions': additional_questions,
                 'chat_session_id': chat_session.session_id
             }
             
-        #print(json_data)
-        answer_serializer = AnswerSerializer(response_data)
+        answer_serializer = AnswerSerializer(response_data)      
         return Response(answer_serializer.data, status=status.HTTP_200_OK)
 
     def get(self, request, *args, **kwargs):
