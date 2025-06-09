@@ -87,7 +87,6 @@ class ChatAPIView(APIView):
                     r = api_data['output']
 
                     if r.startswith("```json"):
-                        print('cadena json')
                         json_string = r.strip("```json\n").strip("```")
                         json_data = json.loads(json_string)
                         actual_agent_response_or_error = json_data['general_response']
@@ -95,7 +94,6 @@ class ChatAPIView(APIView):
                     else:
                         json_data = json.loads(r)
                         actual_agent_response_or_error = json_data['general_response']
-                        print('additional_questions: {}'.format(json_data['additional_questions']))
                         additional_questions = json_data['additional_questions']
 
                                  
