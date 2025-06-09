@@ -85,21 +85,26 @@ class ChatAPIView(APIView):
                 api_data = response.json()
                 if 'output' in api_data: 
                     r = api_data['output']
+
                     if r.startswith("```json"):
+                        print('cadena json')
                         json_string = r.strip("```json\n").strip("```")
                         json_data = json.loads(json_string)
                         actual_agent_response_or_error = json_data['general_response']
                         additional_questions = json_data['additional_questions']
                     else:
-                        actual_agent_response_or_error = r
-                        additional_questions = []
+                        json_data = json.loads(r)
+                        actual_agent_response_or_error = json_data['general_response']
+                        print('additional_questions: {}'.format(json_data['additional_questions']))
+                        additional_questions = json_data['additional_questions']
+
                                  
                     if not actual_agent_response_or_error:
                         actual_agent_response_or_error = r
 
                 else: 
                     actual_agent_response_or_error = response.text
-                    additional_questions = []
+                    additional_questions = None
 
                 if actual_agent_response_or_error is not None:
                     interaction_successful_flag = True
