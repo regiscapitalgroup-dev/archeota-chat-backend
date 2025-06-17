@@ -3,11 +3,11 @@ import os
 from rest_framework.views import APIView
 from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework import status, viewsets
 from .serializers import (QuestionSerializer, AnswerSerializer, AssetSerializer, 
-ChatSessionSerializer, AgentInteractionLogSerializer)
-from .models import AgentInteractionLog, Asset, ChatSession
-from rest_framework.permissions import IsAuthenticated
+ChatSessionSerializer, AgentInteractionLogSerializer, AssetCategorySerializer)
+from .models import AgentInteractionLog, Asset, ChatSession, AssetCategory
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.db import IntegrityError
 from rest_framework.parsers import MultiPartParser, FormParser 
 from django.shortcuts import get_object_or_404
@@ -68,6 +68,8 @@ class ChatAPIView(APIView):
         additional_questions = None
         interaction_successful_flag = False
         error_message_for_log = None
+        category = None
+        attributes = None
         status_code_for_response = status.HTTP_500_INTERNAL_SERVER_ERROR
 
         try:
@@ -88,21 +90,23 @@ class ChatAPIView(APIView):
 
                     if r.startswith("```json"):
                         json_string = r.strip("```json\n").strip("```")
-                        json_data = json.loads(json_string)
-                        actual_agent_response_or_error = json_data['general_response']
-                        additional_questions = json_data['additional_questions']
+                        json_data = json.loads(json_string)  
                     else:
                         json_data = json.loads(r)
-                        actual_agent_response_or_error = json_data['general_response']
-                        additional_questions = json_data['additional_questions']
+                    actual_agent_response_or_error = json_data['general_response']
+                    additional_questions = json_data['additional_questions']
+                    category = json_data['category']
+                    tmp = json_data['attributes']
+                    dict_attributes = dict(item.split('|') for item in tmp)
 
-                                 
                     if not actual_agent_response_or_error:
                         actual_agent_response_or_error = r
 
                 else: 
                     actual_agent_response_or_error = response.text
                     additional_questions = None
+
+
 
                 if actual_agent_response_or_error is not None:
                     interaction_successful_flag = True
@@ -174,13 +178,17 @@ class ChatAPIView(APIView):
             response_data = {
                 'general_response': actual_agent_response_or_error,
                 'additional_questions': additional_questions,
-                'chat_session_id': requested_session_id_str
+                'chat_session_id': requested_session_id_str,
+                'category': category,
+                'attributes': dict_attributes
             }
         else:
             response_data = {
                 'general_response': actual_agent_response_or_error,
                 'additional_questions': additional_questions,
-                'chat_session_id': chat_session.session_id
+                'chat_session_id': chat_session.session_id,
+                'category': category,
+                'attributes': dict_attributes
             }
             
         answer_serializer = AnswerSerializer(response_data)      
@@ -267,3 +275,9 @@ class ChatSessionInteractionListView(ListAPIView):
         session_uuid = self.kwargs.get('session_uuid')
         chat_session = get_object_or_404(ChatSession, session_id=session_uuid, user=user)
         return AgentInteractionLog.objects.filter(chat_session=chat_session)
+    
+
+class AssetCategoryListView(ListAPIView):
+    queryset = AssetCategory.objects.all().order_by('category_name')
+    serializer_class = AssetCategorySerializer
+    permission_classes = [AllowAny]

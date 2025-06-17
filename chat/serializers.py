@@ -1,5 +1,6 @@
 from rest_framework import serializers
-from .models import Asset, ChatSession, AgentInteractionLog
+from rest_framework.fields import SerializerMethodField, DictField
+from .models import Asset, ChatSession, AgentInteractionLog, AssetCategory  
 from django.contrib.auth import get_user_model
 
 USER_MODEL = get_user_model()
@@ -18,16 +19,15 @@ class AnswerSerializer(serializers.Serializer):
     general_response = serializers.CharField()
     additional_questions = AdditionalQuestionSerializer(many=True)
     chat_session_id = serializers.UUIDField(read_only=True, format='hex_verbose')
+    category = serializers.CharField(required=False)
+    attributes = serializers.DictField(required=False)
 
 
 class AssetSerializer(serializers.ModelSerializer):
     # Campo para mostrar el nombre del propietario (solo lectura)
     owner_username = serializers.CharField(source='owner.username', read_only=True)
-
-    # Opcional: Si quieres un control más explícito sobre el campo 'photo'
-    # photo = serializers.ImageField(required=True, allow_null=False)
-    # Por defecto, ModelSerializer inferirá 'required=True' y 'allow_null=False'
-    # de la definición del modelo (null=False, blank=False).
+    category = serializers.CharField(required=False, allow_null=True)
+    attributes = serializers.SerializerMethodField(required=False, allow_null=True)
 
     class Meta:
         model = Asset
@@ -42,13 +42,10 @@ class AssetSerializer(serializers.ModelSerializer):
             'photo',
             'syntasis_summary',
             'full_conversation_history',
+            'category',
+            'attributes'
             'asset_date'  # auto_now=True, será read_only por defecto
         ]
-        # No es estrictamente necesario listar 'id' y 'asset_date' en read_only_fields
-        # ya que ModelSerializer los trata como read-only por defecto.
-        # 'owner_username' ya está definido como read_only=True arriba.
-        # Si quisiéramos ser explícitos:
-        # read_only_fields = ['id', 'asset_date']
 
 
 class ChatSessionSerializer(serializers.ModelSerializer):
@@ -80,6 +77,11 @@ class AgentInteractionLogSerializer(serializers.ModelSerializer):
             'is_successful',
             'error_message'
         ]
-        # Puedes marcar campos como read_only si es necesario,
-        # aunque para una lista no es estrictamente requerido.
         read_only_fields = ['timestamp']
+
+
+class AssetCategorySerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = AssetCategory
+        fields = ['id', 'category_name']
