@@ -26,8 +26,8 @@ class AnswerSerializer(serializers.Serializer):
 class AssetSerializer(serializers.ModelSerializer):
     # Campo para mostrar el nombre del propietario (solo lectura)
     owner_username = serializers.CharField(source='owner.username', read_only=True)
-    category = serializers.CharField(required=False, allow_null=True)
-    attributes = serializers.SerializerMethodField(required=False, allow_null=True)
+    #category = serializers.CharField(required=False, allow_null=True)
+    #attributes = serializers.SerializerMethodField(required=False, allow_null=True)
 
     class Meta:
         model = Asset
@@ -43,7 +43,7 @@ class AssetSerializer(serializers.ModelSerializer):
             'syntasis_summary',
             'full_conversation_history',
             'category',
-            'attributes'
+            'attributes',
             'asset_date'  # auto_now=True, será read_only por defecto
         ]
 
