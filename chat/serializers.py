@@ -84,4 +84,4 @@ class AssetCategorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = AssetCategory
-        fields = ['id', 'category_name']
+        fields = ['id', 'category_name', 'attributes']
