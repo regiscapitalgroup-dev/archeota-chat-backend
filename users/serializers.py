@@ -2,9 +2,29 @@ from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer as SimpleJWTTokenObtainPairSerializer
+from .models import Profile
 
 
 CustomUser = get_user_model()
+
+
+class UserProfileSerializer(serializers.ModelSerializer):
+    role_id = serializers.IntegerField(source='role.id', read_only=True, allow_null=True)
+    role_code = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Profile
+        fields = [
+            'phone_number',
+            'national_id',
+            'role_id', 
+            'role_code',
+         ]
+        
+    def get_role_code(self, obj):
+        if obj.role and hasattr(obj.role, 'code') and obj.role.code:
+            return obj.role.code.upper()
+        return None
 
 
 class CustomUserSerializer(serializers.ModelSerializer):
@@ -39,21 +59,17 @@ class CustomUserSerializer(serializers.ModelSerializer):
         return user
 
 
-class UserDetailSerializer(serializers.ModelSerializer): # Para Detalles de Usuario
+class UserDetailSerializer(serializers.ModelSerializer): 
+    profile = UserProfileSerializer(read_only=True)
     class Meta:
         model = CustomUser
-        fields = ['id', 'email', 'first_name', 'last_name'] # Ajusta según los campos que quieras mostrar
+        fields = ['id', 'email', 'first_name', 'last_name', 'profile'] 
 
 
-class CustomTokenObtainPairSerializer(SimpleJWTTokenObtainPairSerializer): # Para Login, añadiendo datos del usuario
-    """
-    Personaliza el serializer de TokenObtainPair para añadir datos del usuario
-    en la respuesta del login.
-    """
+class CustomTokenObtainPairSerializer(SimpleJWTTokenObtainPairSerializer): 
     def validate(self, attrs):
-        data = super().validate(attrs) # Llama al validador padre para obtener tokens
-        
-        # Añadir datos del usuario a la respuesta
+        data = super().validate(attrs) 
+
         user_serializer = UserDetailSerializer(self.user)
         data['user'] = user_serializer.data
         return data
@@ -71,11 +87,9 @@ class LogoutSerializer(serializers.Serializer): # Para Logout
         return attrs
 
     def save(self, **kwargs):
-        # No es necesario importar TokenError si confías en que simplejwt lo maneje internamente
-        # al llamar a blacklist()
         try:
             RefreshToken(self.token).blacklist()
-        except Exception: # Captura una excepción más genérica si TokenError no es suficiente
+        except Exception: 
             self.fail('bad_token')
 
 

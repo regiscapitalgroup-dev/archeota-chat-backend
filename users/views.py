@@ -1,7 +1,7 @@
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework_simplejwt.views import TokenObtainPairView as SimpleJWTTokenObtainPairView
-from .serializers import GoogleAuthSerializer
+from .serializers import GoogleAuthSerializer, UserProfileSerializer
 from .models import GoogleProfile
 from rest_framework.authtoken.models import Token
 from google.oauth2 import id_token
@@ -24,6 +24,21 @@ CustomUser = get_user_model()
 class UserCreateView(generics.CreateAPIView): 
     serializer_class = CustomUserSerializer
     permission_classes = [permissions.AllowAny] 
+
+
+class ProfileDetailView(generics.RetrieveUpdateAPIView):
+    """
+    Vista para ver y actualizar el perfil del usuario autenticado.
+    """
+    serializer_class = UserProfileSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_object(self):
+        # Devuelve el perfil del usuario que hace la petición
+        return self.request.user.profile
+
+    def perform_update(self, serializer):
+        serializer.save(user=self.request.user)
 
 
 class LoginView(SimpleJWTTokenObtainPairView):
@@ -63,40 +78,27 @@ class GoogleLoginView(APIView):
                 id_token_str, requests.Request(), settings.GOOGLE_OAUTH_CLIENT_ID
             )
 
-            # Or, if you need to verify against a list of client IDs:
-            # idinfo = id_token.verify_oauth2_token(id_token_str, requests.Request())
-            # if idinfo['aud'] not in [CLIENT_ID_1, CLIENT_ID_2, CLIENT_ID_3]:
-            #     raise ValueError('Could not verify audience.')
-
-            # ID token is valid. Get the user's Google ID and profile information.
             userid = idinfo['sub']
             email = idinfo['email']
             first_name = idinfo.get('given_name', '')
             last_name = idinfo.get('family_name', '')
-            name = idinfo.get('name', '') # Full name
+            name = idinfo.get('name', '') 
 
-            # Find or create the user
             try:
                 user = CustomUser.objects.get(email=email)
             except CustomUser.DoesNotExist:
-                # Create a new user if not found
                 user = CustomUser.objects.create_user(
                     email=email,
-                    # username=email, # Or generate a unique username
                     first_name=first_name,
                     last_name=last_name,
-                    # password=User.objects.make_random_password() # Consider setting an unusable password
                 )
-                user.set_unusable_password() # Mark password as unusable for social logins
+                user.set_unusable_password()
                 user.save()
 
-            # Optional: Link Google ID to user profile
-            # from .models import GoogleProfile
             google_profile, created = GoogleProfile.objects.get_or_create(user=user)
             google_profile.google_id = userid
             google_profile.save()
 
-            # Generate or retrieve authentication token for DRF
             token, created = Token.objects.get_or_create(user=user)
             
             refresh_token_obj = RefreshToken.for_user(user)
@@ -111,7 +113,6 @@ class GoogleLoginView(APIView):
             }, status=status.HTTP_200_OK)
 
         except ValueError as e:
-            # Invalid token
             return Response({"error": f"Invalid Google ID Token: {e}"}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({"error": f"An unexpected error occurred: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
