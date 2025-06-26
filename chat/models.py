@@ -109,3 +109,30 @@ class ClaimAction(models.Model):
         verbose_name = "Claim Action"
         verbose_name_plural = "Claim Actions"
     
+
+class ClaimActionTransaction(models.Model):
+    data_for = models.CharField(max_length=255, null=True, blank=True)
+    trade_date = models.DateField(null=True, blank=True)
+    account = models.CharField(max_length=255, null=True, blank=True)
+    account_name = models.CharField(max_length=255, null=True, blank=True)
+    account_type = models.CharField(max_length=10, null=True, blank=True)
+    account_number = models.CharField(max_length=20, null=True, blank=True)
+    activity = models.CharField(max_length=60, null=True, blank=True)
+    description = models.CharField(max_length=255, null=True, blank=True)
+    symbol = models.CharField(max_length=20, null=True, blank=True)
+    quantity = models.DecimalField(max_digits=20, decimal_places=2, default=0)
+    amount = models.DecimalField(max_digits=20, decimal_places=2, default=0)
+    notes = models.CharField(max_length=255, null=True, blank=True)
+    # Type (Expense/Income/USD Income/USD outcome)
+    # Company (Usuario tipo commpania)   
+    # User (Clave del usuario final, capturado u obtenido desde el ID del archivo)
+    user = models.ForeignKey(USER_MODEL, on_delete=models.SET_NULL, related_name='users')
+    
+
+    def __str__(self) -> str:
+        return self.data_for
+    
+    class Meta:
+        verbose_name = 'Claim Action Transaction'
+        verbose_name_plural = 'Claim Action Transactions'
+
