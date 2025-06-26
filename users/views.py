@@ -1,8 +1,8 @@
-from rest_framework import generics, permissions, status
+from rest_framework import generics, permissions, status, viewsets
 from rest_framework.response import Response
 from rest_framework_simplejwt.views import TokenObtainPairView as SimpleJWTTokenObtainPairView
-from .serializers import GoogleAuthSerializer, UserProfileSerializer
-from .models import GoogleProfile
+from .serializers import GoogleAuthSerializer, UserProfileSerializer, RoleSerializer, CompanySerializer
+from .models import GoogleProfile, Role, Company
 from rest_framework.authtoken.models import Token
 from google.oauth2 import id_token
 from rest_framework.views import APIView
@@ -116,3 +116,13 @@ class GoogleLoginView(APIView):
             return Response({"error": f"Invalid Google ID Token: {e}"}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({"error": f"An unexpected error occurred: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class RoleViewset(viewsets.ModelViewSet):
+    queryset = Role.objects.all()
+    serializer_class = RoleSerializer
+
+
+class CompanyViewset(viewsets.ModelViewSet):
+    queryset = Company.objects.all()
+    serializer_class = CompanySerializer

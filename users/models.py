@@ -19,10 +19,21 @@ class Role(models.Model):
         verbose_name_plural = "Roles"
 
 
+class Company(models.Model):
+    name = models.CharField(max_length=200, help_text="Company's Name")
+
+    def __str__(self):
+        return self.name
+    
+    class Meta:
+        verbose_name = "Company"
+        verbose_name_plural = "Companies"
+
+
 class CustomUserManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
         if not email:
-            raise ValueError(_('El campo Email es obligatorio'))
+            raise ValueError(_('email is required'))
         email = self.normalize_email(email)
         user = self.model(email=email, **extra_fields)
         user.set_password(password)
@@ -35,9 +46,9 @@ class CustomUserManager(BaseUserManager):
         extra_fields.setdefault('is_active', True)
 
         if extra_fields.get('is_staff') is not True:
-            raise ValueError(_('Superuser debe tener is_staff=True.'))
+            raise ValueError(_('Superuser must have is_staff=True.'))
         if extra_fields.get('is_superuser') is not True:
-            raise ValueError(_('Superuser debe tener is_superuser=True.'))
+            raise ValueError(_('Superuser must have is_superuser=True.'))
 
         extra_fields.setdefault('first_name', 'Admin')
         extra_fields.setdefault('last_name', 'User')
@@ -65,9 +76,11 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
 class Profile(models.Model):
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='profile')
     role = models.ForeignKey(Role, on_delete=models.SET_NULL, null=True, blank=True, related_name="users")
+    company = models.ForeignKey(Company, on_delete=models.SET_NULL, null=True, blank=True, related_name="companies")
     phone_number = models.CharField(max_length=30, blank=True, null=True, verbose_name=_('Phone Number'))
     # avatar = models.ImageField(upload_to='avatars/', null=True, blank=True, verbose_name=_('avatar'))
     national_id = models.CharField(max_length=100, blank=True, null=True, verbose_name=_('National ID'))
+    digital_signature = models.TextField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -82,7 +95,7 @@ class Profile(models.Model):
 @receiver(post_save, sender=CustomUser)
 def create_user_profile(sender, instance, created, **kwargs):
     if created:
-        default_role, _ = Role.objects.get_or_create(code='user', defaults={'description': 'Class Member'})
+        default_role, _ = Role.objects.get_or_create(code='final_user', defaults={'description': 'Class Member'})
         Profile.objects.create(user=instance, role=default_role)   
 
 @receiver(post_save, sender=CustomUser)
@@ -90,7 +103,7 @@ def save_user_profile(sender, instance, **kwargs):
     try:
         instance.profile.save()
     except Profile.DoesNotExist:
-         default_role, _ = Role.objects.get_or_create(code='user')
+         default_role, _ = Role.objects.get_or_create(code='final_user')
          Profile.objects.create(user=instance, role=default_role)        
 
 

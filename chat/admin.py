@@ -1,10 +1,10 @@
 from django.contrib import admin
-from .models import AgentInteractionLog, Asset, ChatSession, AssetCategory
+from .models import AgentInteractionLog, Asset, ChatSession, AssetCategory, ClaimAction
 
 
 admin.site.register(Asset)
 admin.site.register(AssetCategory)
-
+admin.site.register(ClaimAction)
 
 @admin.register(ChatSession)
 class ChatSessionAdmin(admin.ModelAdmin):
