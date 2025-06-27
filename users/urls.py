@@ -1,5 +1,5 @@
 from django.urls import path, include
-from rest_framework_simplejwt.views import TokenRefreshView # Vista integrada para refrescar token
+from rest_framework_simplejwt.views import TokenRefreshView 
 from rest_framework.routers import DefaultRouter
 from .views import (
     UserCreateView,
@@ -8,7 +8,8 @@ from .views import (
     LogoutView, 
     GoogleLoginView, 
     RoleViewset, 
-    CompanyViewset
+    CompanyViewset, 
+    ProfileDetailView
 )
 
 router = DefaultRouter()
@@ -23,5 +24,6 @@ urlpatterns = [
     path('logout/', LogoutView.as_view(), name='user-logout'),
     path('google-login/', GoogleLoginView.as_view(), name='google-login'),
     path('user/', UserDetailView.as_view(), name='user-detail'), 
+    path('user/profile/', ProfileDetailView.as_view(), name='prfile'),
     path('', include(router.urls))
 ]
