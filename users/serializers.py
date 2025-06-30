@@ -21,16 +21,21 @@ class CompanySerializer(serializers.ModelSerializer):
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
-    role_id = serializers.IntegerField(source='role.id', read_only=True, allow_null=True)
-    role_code = serializers.SerializerMethodField()
+    #role_id = serializers.IntegerField(source='role.id', read_only=True, allow_null=True)
+    role_code = serializers.CharField(source='role.code', read_only=True)
+    company_name = serializers.CharField(source='company.name', read_only=True)
 
     class Meta:
         model = Profile
         fields = [
+            'role', 
+            'role_code',
+            'company',
+            'company_name',
             'phone_number',
             'national_id',
-            'role_id', 
-            'role_code',
+            'digital_signature'
+            
          ]
         
     def get_role_code(self, obj):

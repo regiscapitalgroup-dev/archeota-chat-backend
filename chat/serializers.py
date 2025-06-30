@@ -1,6 +1,7 @@
 from rest_framework import serializers
-from .models import Asset, ChatSession, AgentInteractionLog, AssetCategory  
+from .models import ChatSession, AgentInteractionLog 
 from django.contrib.auth import get_user_model
+
 
 USER_MODEL = get_user_model()
 
@@ -20,26 +21,6 @@ class AnswerSerializer(serializers.Serializer):
     chat_session_id = serializers.UUIDField(read_only=True, format='hex_verbose')
     category = serializers.CharField(required=False)
     attributes = serializers.DictField(required=False)
-
-
-class AssetSerializer(serializers.ModelSerializer):
-    owner_username = serializers.CharField(source='owner.username', read_only=True)
-
-    class Meta:
-        model = Asset
-        fields = [
-            'id', 
-            'owner_username', 
-            'name',
-            'value',
-            'value_over_time',
-            'photo',
-            'syntasis_summary',
-            'full_conversation_history',
-            'category',
-            'attributes',
-            'asset_date' 
-        ]
 
 
 class ChatSessionSerializer(serializers.ModelSerializer):
@@ -69,9 +50,3 @@ class AgentInteractionLogSerializer(serializers.ModelSerializer):
             'error_message'
         ]
         read_only_fields = ['timestamp']
-
-
-class AssetCategorySerializer(serializers.ModelSerializer):
-    class Meta:
-        model = AssetCategory
-        fields = ['id', 'category_name', 'attributes']

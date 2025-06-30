@@ -1,16 +1,18 @@
 import requests
 import os
+from django.shortcuts import get_object_or_404
 from rest_framework.views import APIView
 from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
-from rest_framework import status, viewsets
-from .serializers import (QuestionSerializer, AnswerSerializer, AssetSerializer, 
-ChatSessionSerializer, AgentInteractionLogSerializer, AssetCategorySerializer)
-from .models import AgentInteractionLog, Asset, ChatSession, AssetCategory
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework import status, generics
+from .serializers import (
+    QuestionSerializer, 
+    AnswerSerializer, 
+    ChatSessionSerializer, 
+    AgentInteractionLogSerializer)
+from .models import AgentInteractionLog, ChatSession
+from rest_framework.permissions import IsAuthenticated
 from django.db import IntegrityError
-from rest_framework.parsers import MultiPartParser, FormParser 
-from django.shortcuts import get_object_or_404
 import json
 
 
@@ -18,7 +20,8 @@ AGENT_API_URL = os.getenv("AGENT_API_URL")
 REQUEST_TIMEOUT = 20
 
 
-class ChatAPIView(APIView):
+class ChatAPIView(generics.GenericAPIView):
+    serializer_class = QuestionSerializer
     permission_classes = [IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
@@ -40,12 +43,11 @@ class ChatAPIView(APIView):
                 if not created and chat_session.user != request.user:
                    return Response(
                         {"error": "Session ID conflict or unauthorized ID."},
-                        status=status.HTTP_409_CONFLICT # 409 Conflict es apropiado
+                        status=status.HTTP_409_CONFLICT 
                     )
 
                 if not created:
-                    # Si la sesión ya existía y fue obtenida, actualizamos su actividad.
-                    chat_session.save() # Dispara auto_now en last_activity
+                    chat_session.save() 
 
             except IntegrityError:
                 return Response(
@@ -53,7 +55,6 @@ class ChatAPIView(APIView):
                     status=status.HTTP_409_CONFLICT
                 )
         else:
-            # No se proveyó ID de sesión, crear una nueva
             chat_session = ChatSession.objects.create(user=request.user)
             requested_session_id_str = chat_session.session_id
 
@@ -105,8 +106,6 @@ class ChatAPIView(APIView):
                 else: 
                     actual_agent_response_or_error = response.text
                     additional_questions = None
-
-
 
                 if actual_agent_response_or_error is not None:
                     interaction_successful_flag = True
@@ -173,7 +172,6 @@ class ChatAPIView(APIView):
         if not interaction_successful_flag and error_message_for_log:
              return Response({"error": agent_answer_text_for_client, "detail": error_message_for_log}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-
         if requested_session_id_str:
             response_data = {
                 'general_response': actual_agent_response_or_error,
@@ -197,7 +195,7 @@ class ChatAPIView(APIView):
     def get(self, request, *args, **kwargs):
         return Response(
             {"message": "Please use the POST method with a JSON {'question': 'your_question'} to get a response."},
-            status=status.HTTP_405_METHOD_NOT_ALLOWED # Method Not Allowed
+            status=status.HTTP_405_METHOD_NOT_ALLOWED 
         )
 
 
@@ -210,62 +208,6 @@ class UserChatSessionListView(ListAPIView):
         return ChatSession.objects.filter(user=user)
 
 
-
-class AssetAPIView(APIView):
-    parser_classes = (MultiPartParser, FormParser)
-    permission_classes = [IsAuthenticated] # Esencial si usas request.user
-
-    def get(self, request, pk=None, format=None):
-        # (Asumiendo que tu GET sigue filtrando por owner si es necesario)
-        if pk:
-            # Solo el propietario puede ver el detalle
-            asset = get_object_or_404(Asset, pk=pk, owner=request.user)
-            serializer = AssetSerializer(asset, context={'request': request})
-            return Response(serializer.data)
-        else:
-            # Listar solo los assets del usuario autenticado
-            assets = Asset.objects.filter(owner=request.user)
-            serializer = AssetSerializer(assets, many=True, context={'request': request})
-            return Response(serializer.data)
-
-    def post(self, request, format=None):
-        serializer = AssetSerializer(data=request.data, context={'request': request})
-        if serializer.is_valid():
-            # Asigna el owner automáticamente al usuario autenticado
-            serializer.save(owner=request.user)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    def put(self, request, pk, format=None):
-        asset = get_object_or_404(Asset, pk=pk)
-
-        # Comprobación de permisos: solo el propietario puede editar
-        if asset.owner != request.user:
-            return Response(
-                {"detail": "You do not have permission to edit this asset."},
-                status=status.HTTP_403_FORBIDDEN
-            )
-
-        serializer = AssetSerializer(asset, data=request.data, partial=True, context={'request': request})
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    def delete(self, request, pk, format=None):
-        asset = get_object_or_404(Asset, pk=pk)
-
-        # Comprobación de permisos
-        if asset.owner != request.user:
-            return Response(
-                {"detail": "You do not have permission to delete this asset."},
-                status=status.HTTP_403_FORBIDDEN
-            )
-        
-        asset.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
-
-
 class ChatSessionInteractionListView(ListAPIView):
     serializer_class = AgentInteractionLogSerializer
     permission_classes = [IsAuthenticated]
@@ -276,8 +218,3 @@ class ChatSessionInteractionListView(ListAPIView):
         chat_session = get_object_or_404(ChatSession, session_id=session_uuid, user=user)
         return AgentInteractionLog.objects.filter(chat_session=chat_session)
     
-
-class AssetCategoryListView(ListAPIView):
-    queryset = AssetCategory.objects.all().order_by('category_name')
-    serializer_class = AssetCategorySerializer
-    permission_classes = [AllowAny]

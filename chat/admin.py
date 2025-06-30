@@ -1,10 +1,6 @@
 from django.contrib import admin
-from .models import AgentInteractionLog, Asset, ChatSession, AssetCategory, ClaimAction
+from .models import AgentInteractionLog, ChatSession 
 
-
-admin.site.register(Asset)
-admin.site.register(AssetCategory)
-admin.site.register(ClaimAction)
 
 @admin.register(ChatSession)
 class ChatSessionAdmin(admin.ModelAdmin):
@@ -42,7 +38,6 @@ class AgentInteractionLogAdmin(admin.ModelAdmin):
     get_user_email_from_session.short_description = 'Email Usuario (Sesión)'
     get_user_email_from_session.admin_order_field = 'chat_session__user__email'
 
-    # ... (tus métodos _shortened existentes) ...
     def question_text_shortened(self, obj):
         # ...
         pass
@@ -54,5 +49,5 @@ class AgentInteractionLogAdmin(admin.ModelAdmin):
         return False
     
     def has_delete_permission(self, request, obj=None):
-        return True # O False si no quieres permitir borrar
+        return True 
     
