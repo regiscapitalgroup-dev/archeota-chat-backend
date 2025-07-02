@@ -1,15 +1,15 @@
 from django.urls import path, include
-from .views import AssetCategoryListView, ImportDataView, AssetViewSet
-from rest_framework.routers import DefaultRouter
+from .views import (AssetCategoryListView, AssetDetailView, AssetListCreateView, 
+          ClaimActionListView, ClaimActionTransactionListView)
 
-router = DefaultRouter()
-router.register(r'', AssetViewSet, basename='assets')
-router.register('categories/', AssetCategoryListView, basename='category_list')
 
 urlpatterns = [
-    #path('', AssetViewSet, basename='asset-list-create'),
-    path('', include(router.urls)),
-    #path('categories/', AssetCategoryListView.as_view(), name='categories_list'),
-    #path('<int:pk>/', AssetAPIView.as_view(), name='asset-detail-update-delete'),   
-    # path('import-data/', ImportDataView.as_view(), name='import-data'), 
+    path('', AssetListCreateView.as_view(), name='asset-list-create'),
+    path('<int:pk>/', AssetDetailView.as_view(), name='asset-detail'),
+
+    # URL para AssetCategory (Solo listar)
+    path('categories/', AssetCategoryListView.as_view(), name='assetcategory-list'),
+    path('claim-actions/', ClaimActionListView.as_view(), name='claimaction-list'),
+    path('claim-transactions/', ClaimActionTransactionListView.as_view(), name='claimtransaction-list'),
+
 ]

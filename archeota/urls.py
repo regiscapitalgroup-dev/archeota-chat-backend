@@ -13,10 +13,9 @@ urlpatterns = [
     path('api/v1/assets/', include('asset.urls')),
     path('api/v1/transactions/import-data/', ImportDataView.as_view(), name='import-data'),
 
-    path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
-    # Optional UI:
-    path('api/schema/swagger-ui/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
-    path('api/schema/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),    
+    #path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
+    #path('api/schema/swagger-ui/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+    #path('api/schema/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),    
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

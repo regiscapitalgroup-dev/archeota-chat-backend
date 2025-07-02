@@ -1,7 +1,8 @@
 from rest_framework import generics, permissions, status, viewsets
 from rest_framework.response import Response
 from rest_framework_simplejwt.views import TokenObtainPairView as SimpleJWTTokenObtainPairView
-from .serializers import GoogleAuthSerializer, UserProfileSerializer, RoleSerializer, CompanySerializer
+from .serializers import (GoogleAuthSerializer, UserProfileSerializer, RoleSerializer, CompanySerializer, 
+UnifiedRegisterSerializer, CompanyRegisterSerializer, SimplifiedRegisterSerializer, UserDetailSerializer, UserUpdateSerializer )
 from .models import GoogleProfile, Role, Company
 from rest_framework.authtoken.models import Token
 from google.oauth2 import id_token
@@ -9,8 +10,9 @@ from rest_framework.views import APIView
 from django.conf import settings
 from google.auth.transport import requests
 from rest_framework_simplejwt.tokens import RefreshToken
-
+from .filters import UserFilter 
 from django.contrib.auth import get_user_model
+from django_filters.rest_framework import DjangoFilterBackend
 
 from .serializers import (
     CustomUserSerializer, 
@@ -52,6 +54,13 @@ class UserDetailView(generics.RetrieveAPIView):
 
     def get_object(self):
         return self.request.user
+    
+    def get_serializer_class(self):
+        if self.request.method in ['PUT', 'PATCH']:
+            # Para actualizar, usamos el serializer simple y seguro.
+            return UserUpdateSerializer
+        # Para ver los detalles, usamos el serializer completo que ya teníamos.
+        return UserDetailSerializer
 
 
 class LogoutView(generics.GenericAPIView): 
@@ -126,3 +135,80 @@ class RoleViewset(viewsets.ModelViewSet):
 class CompanyViewset(viewsets.ModelViewSet):
     queryset = Company.objects.all()
     serializer_class = CompanySerializer
+
+
+class FinalUserRegisterView(generics.CreateAPIView):
+    """Endpoint para registrar un usuario final ('final_user')."""
+    queryset = CustomUser.objects.all()
+    serializer_class = UnifiedRegisterSerializer
+    permission_classes = [permissions.AllowAny]
+
+    def get_serializer_context(self):
+        # Le pasamos el rol 'USER' al serializer
+        context = super().get_serializer_context()
+        context['role'] = 'final_user'
+        return context
+
+class CompanyRegisterView(generics.CreateAPIView):
+    """Endpoint para registrar un usuario de tipo compañía ('company')."""
+    queryset = CustomUser.objects.all()
+    serializer_class = UnifiedRegisterSerializer
+    permission_classes = [permissions.AllowAny]
+
+    def get_serializer_context(self):
+        # Le pasamos el rol 'COMPANY' al serializer
+        context = super().get_serializer_context()
+        context['role'] = 'company'
+        return context
+
+class AdministratorRegisterView(generics.CreateAPIView):
+    """Endpoint para registrar un usuario administrador ('administrator')."""
+    queryset = CustomUser.objects.all()
+    serializer_class = UnifiedRegisterSerializer
+    # ⚠️ ¡ALERTA DE SEGURIDAD! ⚠️
+    # Solo los administradores ya autenticados pueden crear otros administradores.
+    permission_classes = [permissions.IsAuthenticated, permissions.IsAdminUser]
+
+    def get_serializer_context(self):
+        # Le pasamos el rol 'ADMIN' al serializer
+        context = super().get_serializer_context()
+        context['role'] = 'administrator'
+        return context
+
+class RegisterView(generics.CreateAPIView):
+    """
+    Un único endpoint para registrar cualquier tipo de usuario.
+    El rol puede ser especificado opcionalmente en el cuerpo de la petición.
+    """
+    serializer_class = SimplifiedRegisterSerializer
+    permission_classes = [permissions.AllowAny]
+
+
+class UserListView(generics.ListAPIView):
+    """
+    Vista para listar y filtrar usuarios.
+    
+    Permite filtrar por:
+    - /users/?role_name=COMPANY
+    - /users/?company_name=MiEmpresa
+    - /users/?email=usuario@example.com
+    """
+    # 💡 Optimización de rendimiento: precargamos los perfiles y roles 
+    # para evitar consultas extra a la base de datos por cada usuario en la lista.
+    queryset = CustomUser.objects.all().select_related(
+        'role', 'profile', 'companyprofile'
+    )
+    
+    # Usamos el serializer de detalle que ya muestra la info del perfil
+    serializer_class = UserDetailSerializer
+    
+    # 🔒 Seguridad: Solo usuarios autenticados pueden ver la lista.
+    # Para producción, podrías usar [permissions.IsAdminUser]
+    permission_classes = [permissions.IsAuthenticated] 
+    
+    # ✨ La magia sucede aquí: conectamos el backend de filtros y nuestra clase
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = UserFilter
+
+
+

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import AssetCategory, Asset
+from .models import AssetCategory, Asset, ClaimAction, ClaimActionTransaction
 
 
 class AssetCategorySerializer(serializers.ModelSerializer):
@@ -48,3 +48,13 @@ class FileUploadSerializer(serializers.Serializer):
         return value
 
 
+class ClaimActionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ClaimAction
+        fields = '__all__' # Incluye todos los campos del modelo
+
+
+class ClaimActionTransactionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ClaimActionTransaction
+        fields = '__all__'

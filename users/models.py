@@ -2,8 +2,9 @@ from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, Permis
 from django.db import models
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _ 
-from django.db.models.signals import post_save
+from django.db.models.signals import post_migrate
 from django.dispatch import receiver
+from django.db.models.signals import post_save
 
 
 class Role(models.Model):
@@ -17,6 +18,15 @@ class Role(models.Model):
     class Meta:
         verbose_name = "Rol"
         verbose_name_plural = "Roles"
+
+
+@receiver(post_migrate)
+def create_initial_roles(sender, **kwargs):
+    if sender.name == 'users':
+        Role = sender.get_model('Role')
+        ROLES = ['final_user', 'company', 'administrator']
+        for role_name in ROLES:
+            Role.objects.get_or_create(code=role_name)
 
 
 class Company(models.Model):
@@ -63,6 +73,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     is_staff = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True) 
     date_joined = models.DateTimeField(default=timezone.now)
+    role = models.ForeignKey(Role, on_delete=models.SET_NULL, null=True, blank=True, related_name="users")
 
     objects = CustomUserManager()
 
@@ -75,7 +86,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     
 class Profile(models.Model):
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='profile')
-    role = models.ForeignKey(Role, on_delete=models.SET_NULL, null=True, blank=True, related_name="users")
+    # role = models.ForeignKey(Role, on_delete=models.SET_NULL, null=True, blank=True, related_name="users")
     company = models.ForeignKey(Company, on_delete=models.SET_NULL, null=True, blank=True, related_name="companies")
     phone_number = models.CharField(max_length=30, blank=True, null=True, verbose_name=_('Phone Number'))
     # avatar = models.ImageField(upload_to='avatars/', null=True, blank=True, verbose_name=_('avatar'))
@@ -89,22 +100,31 @@ class Profile(models.Model):
     
     class Meta:
         verbose_name = "User Profile"
-        verbose_name_plural = "Users Profiles"    
+        verbose_name_plural = "Users Profiles"   
 
 
 @receiver(post_save, sender=CustomUser)
-def create_user_profile(sender, instance, created, **kwargs):
-    if created:
-        default_role, _ = Role.objects.get_or_create(code='final_user', defaults={'description': 'Class Member'})
-        Profile.objects.create(user=instance, role=default_role)   
+def create_user_profile_on_registration(sender, instance, created, **kwargs):
+    """
+    Crea un perfil vacío (UserProfile o CompanyProfile) para un nuevo usuario
+    basado en el rol asignado durante el registro.
+    """
+    # Solo se ejecuta cuando se crea un nuevo usuario
+    if created and instance.role:
+        if instance.role.code == 'final_user':
+            Profile.objects.create(user=instance)
+        elif instance.role.name == 'company':
+            CompanyProfile.objects.create(user=instance)         
 
-@receiver(post_save, sender=CustomUser)
-def save_user_profile(sender, instance, **kwargs):
-    try:
-        instance.profile.save()
-    except Profile.DoesNotExist:
-         default_role, _ = Role.objects.get_or_create(code='final_user')
-         Profile.objects.create(user=instance, role=default_role)        
+
+class CompanyProfile(models.Model):
+    user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='companyprofile')
+    company_name = models.CharField(max_length=255)
+    website = models.URLField(blank=True, null=True)
+    tax_id = models.CharField(max_length=50, blank=True, null=True, verbose_name="ID Fiscal")
+    
+    def __str__(self):
+        return f'Perfil de Compañía de {self.user.email}'        
 
 
 class GoogleProfile(models.Model):

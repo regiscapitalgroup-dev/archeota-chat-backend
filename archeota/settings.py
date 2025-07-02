@@ -41,8 +41,12 @@ INSTALLED_APPS = [
     "rest_framework.authtoken",
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist', 
+    'django_filters',
     "users",
     "chat",
+    "asset",
+    #'drf_spectacular',
+    #'drf_spectacular_sidecar',
 ]
 
 MIDDLEWARE = [
@@ -150,6 +154,8 @@ STORAGES = {
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10485760
+
 AUTH_USER_MODEL = 'users.CustomUser'
 
 # django-cors-headers
@@ -177,7 +183,7 @@ REST_FRAMEWORK = {
         'djangorestframework_camel_case.parser.CamelCaseFormParser',
         'djangorestframework_camel_case.parser.CamelCaseMultiPartParser',
         'djangorestframework_camel_case.parser.CamelCaseJSONParser',
-    ),      
+    ),    
 }
 
 AUTHENTICATION_BACKENDS = (

@@ -85,9 +85,7 @@ class ClaimActionTransaction(models.Model):
 
     def __str__(self) -> str:
         return self.data_for
-    
-    class Meta:
-        verbose_name = 'Claim Action Transaction'
-        verbose_name_plural = 'Claim Action Transactions'
 
-
+class Meta:
+    verbose_name = 'Claim Action Transaction'
+    verbose_name_plural = 'Claim Action Transactions'
