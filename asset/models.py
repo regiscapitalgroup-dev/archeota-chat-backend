@@ -23,8 +23,10 @@ class Asset(models.Model):
                               on_delete=models.CASCADE, 
                               related_name='chat_asset')
     name = models.CharField(max_length=250)
-    value = models.CharField(max_length=30, null=True, blank=True)
-    value_over_time = models.CharField(max_length=50, null=True, blank=True)
+    acquisition_value = models.CharField(max_length=50, null=True, blank=True)
+    estimated_value = models.CharField(max_length=50, null=True, blank=True)
+    low_value = models.CharField(max_length=50, null=True, blank=True)
+    high_value = models.CharField(max_length=50, null=True, blank=True)
     photo = models.ImageField(upload_to='assets_photos/', null=True, blank=True)
     syntasis_summary = models.TextField(blank=True, null=True)
     full_conversation_history = models.TextField(blank=True, null=True)
