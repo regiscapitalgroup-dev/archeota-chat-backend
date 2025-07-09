@@ -34,7 +34,7 @@ class AssetSerializer(serializers.ModelSerializer):
             'category',
             'category_details',
             'attributes',
-            'asset_date' 
+            'asset_date',
         ]
         read_only_fields = ['asset_date', 'owner_username']
 
@@ -60,3 +60,19 @@ class ClaimActionTransactionSerializer(serializers.ModelSerializer):
     class Meta:
         model = ClaimActionTransaction
         fields = '__all__'
+
+
+class AssetDetailNestedSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Asset
+        fields = ['id', 'name', 'acquisition_value', 'estimated_value', 'low_value', 
+                'high_value', 'photo', 'syntasis_summary', 'full_conversation_history', 'attributes']
+
+
+class CategoryWithAssetsSerializer(serializers.ModelSerializer):
+    category = serializers.CharField(source='category_name')
+    assets = AssetDetailNestedSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = AssetCategory
+        fields = ['category', 'assets']

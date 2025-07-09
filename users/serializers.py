@@ -3,6 +3,7 @@ from django.contrib.auth import get_user_model
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer as SimpleJWTTokenObtainPairSerializer
 from .models import Profile, Company, Role, CompanyProfile
+from django.contrib.auth.password_validation import validate_password
 
 
 CustomUser = get_user_model()
@@ -283,3 +284,17 @@ class UserUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
         fields = ['first_name', 'last_name', 'role']
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    user = serializers.CharField(write_only=True, required=True)
+    token = serializers.CharField(write_only=True, required=True)
+    password = serializers.CharField(
+        write_only=True,
+        required=True,
+        validators=[validate_password], 
+        style={'input_type': 'password'}
+    )
+
+    def validate(self, attrs):
+        return attrs

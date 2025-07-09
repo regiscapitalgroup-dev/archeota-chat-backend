@@ -23,8 +23,8 @@ class Asset(models.Model):
                               on_delete=models.CASCADE, 
                               related_name='chat_asset')
     name = models.CharField(max_length=250)
-    acquisition_value = models.CharField(max_length=50, null=True, blank=True)
-    estimated_value = models.CharField(max_length=50, null=True, blank=True)
+    acquisition_value = models.CharField(max_length=30, null=True, blank=True)
+    estimated_value = models.CharField(max_length=50, null=False, blank=False, default='0')
     low_value = models.CharField(max_length=50, null=True, blank=True)
     high_value = models.CharField(max_length=50, null=True, blank=True)
     photo = models.ImageField(upload_to='assets_photos/', null=True, blank=True)

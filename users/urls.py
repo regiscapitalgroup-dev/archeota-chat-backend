@@ -11,7 +11,9 @@ from .views import (
     CompanyViewset, 
     ProfileDetailView, 
     UserListView,
-    RegisterView
+    RegisterView, 
+    ForgotMyPassword,
+    PasswordResetConfirmView
 )
 
 router = DefaultRouter()
@@ -31,6 +33,8 @@ urlpatterns = [
     path('login/refresh/', TokenRefreshView.as_view(), name='token-refresh'), 
     path('logout/', LogoutView.as_view(), name='user-logout'),
     path('google-login/', GoogleLoginView.as_view(), name='google-login'),
+    path('password-reset/', ForgotMyPassword.as_view(), name='password_reset'),
+    path('reset-password/confirm/', PasswordResetConfirmView.as_view(), name='password-reset-confirm'),
     path('user/', UserDetailView.as_view(), name='user-detail'), 
     path('user/profile/', ProfileDetailView.as_view(), name='prfile'),
     path('', include(router.urls))

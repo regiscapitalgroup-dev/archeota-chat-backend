@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 from datetime import timedelta
 from dotenv import load_dotenv
+from decouple import config
 import dj_database_url
 
 load_dotenv()
@@ -45,15 +46,13 @@ INSTALLED_APPS = [
     "users",
     "chat",
     "asset",
-    #'drf_spectacular',
-    #'drf_spectacular_sidecar',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'corsheaders.middleware.CorsMiddleware', # Antes de CommonMiddleware   
+    'corsheaders.middleware.CorsMiddleware',  
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -168,7 +167,17 @@ else:
         "https://main.d2r4dlvkgqpbf1.amplifyapp.com",
     ]
 
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 
+EMAIL_HOST = config("EMAIL_HOST", cast=str, default=None)
+EMAIL_PORT = config("EMAIL_PORT", cast=str, default='587') # Recommended
+EMAIL_HOST_USER = config("EMAIL_HOST_USER", cast=str, default=None)
+EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD", cast=str, default=None)
+EMAIL_USE_TLS = True #config("EMAIL_USE_TLS", cast=bool, default=True)  # Use EMAIL_PORT 587 for TLS
+EMAIL_USE_SSL = False #config("EMAIL_USE_SSL", cast=bool, default=False)  # EUse MAIL_PORT 465 for SSL
+
+ADMIN_USER_NAME=config("ADMIN_USER_NAME", default="Admin user")
+ADMIN_USER_EMAIL=config("ADMIN_USER_EMAIL", default=None)
 
 # djangorestframework
 REST_FRAMEWORK = {
@@ -192,34 +201,29 @@ AUTHENTICATION_BACKENDS = (
 
 # djangorestframework-simplejwt
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(hours=2), # Duración del token de acceso
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),    # Duración del token de refresco
-    "ROTATE_REFRESH_TOKENS": False, # Si es True, cada vez que se refresca, se da un nuevo refresh token
-    "BLACKLIST_AFTER_ROTATION": True, # Si ROTATE_REFRESH_TOKENS es True, el viejo refresh token se añade a la blacklist
-    "UPDATE_LAST_LOGIN": True, # Actualiza el campo last_login del usuario al loguearse
+    "ACCESS_TOKEN_LIFETIME": timedelta(hours=2), 
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),   
+    "ROTATE_REFRESH_TOKENS": False, 
+    "BLACKLIST_AFTER_ROTATION": True, 
+    "UPDATE_LAST_LOGIN": True, 
 
     "ALGORITHM": "HS256",
-    # "SIGNING_KEY": settings.SECRET_KEY, # Ya está por defecto
-    "AUTH_HEADER_TYPES": ("Bearer",), # Tipo de cabecera de autenticación
-    "USER_ID_FIELD": "id", # Campo del modelo de usuario para el user_id en el token
-    "USER_ID_CLAIM": "user_id", # Nombre del claim para el user_id
+    "AUTH_HEADER_TYPES": ("Bearer",), 
+    "USER_ID_FIELD": "id",
+    "USER_ID_CLAIM": "user_id",
 }
 
 # dj-rest-auth
 REST_AUTH = {
-    'USE_JWT': True, # Indispensable para usar JWT
-    'JWT_AUTH_HTTPONLY': False, # True: El token no es accesible por JS en el cliente (más seguro si usas cookies)
-                                # False: El token es accesible por JS (necesario si no usas cookies y manejas tokens en JS)
-    'JWT_AUTH_COOKIE': 'access-token',          # Nombre de la cookie para el token de acceso
-    'JWT_AUTH_REFRESH_COOKIE': 'refresh-token', # Nombre de la cookie para el token de refresco
-    'SESSION_LOGIN': False, # Deshabilitar login por sesión si solo usas JWT
+    'USE_JWT': True,
+    'JWT_AUTH_HTTPONLY': False,                               
+    'JWT_AUTH_COOKIE': 'access-token',        
+    'JWT_AUTH_REFRESH_COOKIE': 'refresh-token', 
+    'SESSION_LOGIN': False, 
 
-    # Serializers personalizados
     'USER_DETAILS_SERIALIZER': 'users.serializers.CustomUserDetailsSerializer',
     'REGISTER_SERIALIZER': 'users.serializers.CustomRegisterSerializer',
-    # 'LOGIN_SERIALIZER': 'dj_rest_auth.serializers.LoginSerializer', # El default funciona bien con email
-    
-    # Para que el registro devuelva el usuario y los tokens
+
     'REGISTER_VIEW_SETS_USER_DETAILS': True, 
 }
 
