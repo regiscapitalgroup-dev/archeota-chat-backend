@@ -236,7 +236,7 @@ class ForgotMyPassword(APIView):
         uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
         token = token_generator.make_token(user)
         
-        reset_link = f"http://localhost:3011/reset-password/{uidb64}/{token}/"
+        reset_link = f"https://main.d2r4dlvkgqpbf1.amplifyapp.com/reset-password/{uidb64}/{token}/"
 
         subject = 'Archeota: Reset your Password'
         message = (
