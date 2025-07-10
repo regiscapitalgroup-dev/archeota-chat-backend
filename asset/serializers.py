@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import AssetCategory, Asset, ClaimAction, ClaimActionTransaction
+from .models import AssetCategory, Asset, ClaimAction, ClaimActionTransaction, ImportLog
 
 
 class AssetCategorySerializer(serializers.ModelSerializer):
@@ -76,3 +76,9 @@ class CategoryWithAssetsSerializer(serializers.ModelSerializer):
     class Meta:
         model = AssetCategory
         fields = ['category', 'assets']
+
+
+class ImportLogSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ImportLog
+        fields = ['id', 'status', 'row_number', 'error_message', 'row_data', 'created_at']

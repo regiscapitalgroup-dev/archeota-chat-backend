@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth import get_user_model
+import uuid
 
 
 USER_MODEL = get_user_model()
@@ -88,6 +89,27 @@ class ClaimActionTransaction(models.Model):
     def __str__(self) -> str:
         return self.data_for
 
-class Meta:
-    verbose_name = 'Claim Action Transaction'
-    verbose_name_plural = 'Claim Action Transactions'
+    class Meta:
+        verbose_name = 'Claim Action Transaction'
+        verbose_name_plural = 'Claim Action Transactions'
+
+
+class ImportLog(models.Model):
+    class StatusChoices(models.TextChoices):
+        SUCCESS = 'SUCCESS', 'Success'
+        ERROR = 'ERROR', 'Error'
+
+    import_job_id = models.UUIDField(default=uuid.uuid4, editable=False)
+    status = models.CharField(max_length=10, choices=StatusChoices.choices)
+    row_number = models.PositiveIntegerField()
+    error_message = models.TextField(blank=True, null=True)
+    row_data = models.JSONField(blank=True, null=True)
+    user = models.ForeignKey(USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Job {self.import_job_id} - Row {self.row_number} - {self.status}"
+    
+    class Meta:
+        verbose_name = 'Import Log'
+        verbose_name_plural = 'Import Logs'

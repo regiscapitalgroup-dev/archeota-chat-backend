@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
-from asset.views import ImportDataView
+from asset.views import ImportDataView, ImportLogListView
 
 
 urlpatterns = [
@@ -11,6 +11,7 @@ urlpatterns = [
     path('api/v1/chat/', include('chat.urls')),
     path('api/v1/assets/', include('asset.urls')),
     path('api/v1/transactions/import-data/', ImportDataView.as_view(), name='import-data'),
+    path('api/v1/transactions/import-logs/<uuid:job_id>/', ImportLogListView.as_view(), name='import-log-list'),
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

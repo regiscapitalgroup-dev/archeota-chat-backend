@@ -1,53 +1,43 @@
-from .models import Asset, AssetCategory, ClaimActionTransaction, ClaimAction
-from .serializers import (AssetCategorySerializer, AssetCategory, AssetSerializer, FileUploadSerializer, 
-       ClaimActionTransactionSerializer, ClaimActionSerializer, CategoryWithAssetsSerializer)
+from .models import Asset, AssetCategory, ClaimActionTransaction, ClaimAction, ImportLog
+from .serializers import (
+    AssetCategorySerializer, 
+    AssetCategory, 
+    AssetSerializer, 
+    FileUploadSerializer,
+    ClaimActionTransactionSerializer, 
+    ClaimActionSerializer, 
+    CategoryWithAssetsSerializer, 
+    ImportLogSerializer
+)
 from rest_framework.parsers import MultiPartParser, FormParser 
-from django.shortcuts import get_object_or_404
 from rest_framework.response import Response
 from rest_framework import status, generics, permissions
+from rest_framework.views import APIView
 from django.db import transaction
 import pandas as pd
 from .pagination import StandardResultsSetPagination 
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Prefetch
+import uuid
 
 
 class AssetListCreateView(generics.ListCreateAPIView):
-    """
-    Endpoint para LISTAR los assets de un usuario o CREAR un nuevo asset.
-    - Si se filtra por categoría, devuelve solo una lista de nombres.
-    - De lo contrario, devuelve la lista completa de objetos de assets.
-    """
     serializer_class = AssetSerializer
     permission_classes = [permissions.IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['category']
 
     def get_queryset(self):
-        """
-        El queryset base siempre filtra por el propietario.
-        """
         return Asset.objects.filter(owner=self.request.user).order_by('-asset_date')
 
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
 
     def list(self, request, *args, **kwargs):
-        """
-        Sobrescribe el método list para cambiar el output si se filtra por categoría.
-        """
-        # Verifica si el parámetro 'category' está en la URL
         if 'category' in request.query_params:
-            # Aplica los filtros (tanto de 'owner' como de 'category')
             queryset = self.filter_queryset(self.get_queryset())
-            
-            # Extrae únicamente los valores del campo 'name' en una lista plana
             names_list = queryset.values_list('name', flat=True)
-            
-            # Retorna la lista de nombres
             return Response(names_list)
-        
-        # Si no se filtra por categoría, ejecuta el comportamiento normal
         return super().list(request, *args, **kwargs)
 
 
@@ -78,101 +68,100 @@ class ClaimActionTransactionListView(generics.ListAPIView):
 
     def get_queryset(self):
         if self.request.user.is_authenticated:
-            return ClaimActionTransaction.objects.all().order_by('-trade_date', 'pk') #filter(user=self.request.user)
+            return ClaimActionTransaction.objects.all().order_by('-trade_date', 'pk') 
         return ClaimActionTransaction.objects.none()
 
 
-class ImportDataView(generics.GenericAPIView):
-    serializer_class = FileUploadSerializer
+class ImportDataView(APIView):
     parser_classes = [MultiPartParser, FormParser]
 
-    @transaction.atomic 
     def post(self, request, *args, **kwargs):
         serializer = FileUploadSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         file_obj = serializer.validated_data['file']
+        current_job_id = uuid.uuid4()
+
+        successful_imports = 0
+        failed_imports = 0        
         
         try:
+            
             if file_obj.name.endswith('.csv'):
                 df = pd.read_csv(file_obj)
             elif file_obj.name.endswith(('.xlsx', '.xls')):
                 df = pd.read_excel(file_obj)
             else:
-                return Response({'error': 'Formato de archivo no soportado.'}, status=status.HTTP_400_BAD_REQUEST)
-            
-            df = df.fillna(0.00, inplace=False)
-            
-            errors = []
-            imported_count = 0
-            
-            for index, row in df.iterrows():
+                return Response({'error': 'Unsupported file format.'}, status=status.HTTP_400_BAD_REQUEST)
+            print(len(df))
+            df = df.fillna(0, inplace=False)
+
+            for index, row in  df.iterrows():
+                row_number = index + 2
                 try:
-                    ClaimActionTransaction.objects.create(
-                        data_for=row['Data For'],
-                        trade_date=row['Trade Date'],
-                        account=row['Account'],
-                        account_name=row['Account Name'],
-                        account_type=row['Account Type'],
-                        account_number=row['Account Number'],
-                        activity=row['Activity'],
-                        description=row['Description'],
-                        symbol=row['Symbol'],
-                        quantity=pd.to_numeric(str(row['Quantity']).replace(',', ''), downcast="float", errors='coerce'),
-                        amount=pd.to_numeric(str(row['Amount']).replace(',', ''), downcast="float", errors='coerce'),
-                        notes=row['Notes'],
-                        type='Type',
-                        company='Company',
-                        user=self.request.user.email,
+                    with transaction.atomic():
+                        ClaimActionTransaction.objects.create(
+                            data_for=row['Data For'],
+                            trade_date=row['Trade Date'],
+                            account=row['Account'],
+                            account_name=row['Account Name'],
+                            account_type=row['Account Type'],
+                            account_number=row['Account Number'],
+                            activity=row['Activity'],
+                            description=row['Description'],
+                            symbol=row['Symbol'],
+                            quantity=row['Quantity'],
+                            amount=row['Amount'],
+                            notes=row['Notes'],
+                            type='Type',
+                            company=self.request.user.profile.company,
+                            user=self.request.user.email,
+                        )
+                    successful_imports += 1
+                except Exception as e: 
+                    failed_imports += 1
+                    ImportLog.objects.create(
+                        import_job_id=current_job_id,
+                        status=ImportLog.StatusChoices.ERROR,
+                        row_number=row_number,
+                        error_message=str(e),
+                        row_data=row.to_dict() 
                     )
-                    imported_count += 1
-
-                except Exception as e:
-                    errors.append(f"Fila {index + 2}: {str(e)}")
-
-            if errors:
-                return Response({
-                    "status": "Importación completada con errores.",
-                    "imported_count": imported_count,
-                    "errors": errors
-                }, status=status.HTTP_400_BAD_REQUEST)
-
             return Response({
-                "status": "Archivo importado exitosamente.",
-                "imported_count": imported_count
-            }, status=status.HTTP_201_CREATED)
-
+                "message": "Processing complete.",
+                "import_job_id": current_job_id,
+                "successful_imports": successful_imports,
+                "failed_imports": failed_imports
+            }, status=status.HTTP_202_ACCEPTED)
         except Exception as e:
-            return Response({'error': f"Error procesando el archivo: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({'error': f"Error processing file: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class AssetsByCategoryView(generics.ListAPIView):
-    """
-    Endpoint que agrupa los assets de un usuario por categoría.
-    """
     serializer_class = CategoryWithAssetsSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         user = self.request.user
 
-        # 1. Obtenemos un QuerySet con solo los assets del usuario actual.
         user_assets = Asset.objects.filter(owner=user)
 
-        # 2. Usamos 'prefetch_related' para optimizar la consulta.
-        #    - Filtramos las categorías para mostrar solo aquellas que contienen assets del usuario.
-        #    - Con 'Prefetch', le decimos a Django que, para cada categoría, 
-        #      cargue una lista de sus assets (llamada 'assets') pero usando nuestro 
-        #      queryset ya filtrado ('user_assets').
         queryset = AssetCategory.objects.filter(
             asset__owner=user
         ).distinct().prefetch_related(
             Prefetch(
-                'asset_set', # El related_name por defecto para los assets de una categoría
+                'asset_set', 
                 queryset=user_assets.order_by('name'),
-                to_attr='assets' # El resultado se guardará en un atributo llamado 'assets'
+                to_attr='assets' 
             )
         )
-        
         return queryset
+
+
+class ImportLogListView(generics.ListAPIView):
+    serializer_class = ImportLogSerializer
+
+    def get_queryset(self):
+        job_id = self.kwargs['job_id']
+        return ImportLog.objects.filter(import_job_id=job_id).order_by('row_number')
