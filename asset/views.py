@@ -121,6 +121,7 @@ class ImportDataView(APIView):
                     successful_imports += 1
                 except Exception as e: 
                     failed_imports += 1
+                    print(str(e))
                     ImportLog.objects.create(
                         import_job_id=current_job_id,
                         status=ImportLog.StatusChoices.ERROR,
@@ -135,6 +136,7 @@ class ImportDataView(APIView):
                 "failed_imports": failed_imports
             }, status=status.HTTP_202_ACCEPTED)
         except Exception as e:
+            print(str(e))
             return Response({'error': f"Error processing file: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
