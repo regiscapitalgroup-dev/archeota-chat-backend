@@ -121,13 +121,19 @@ class ImportDataView(APIView):
                     successful_imports += 1
                 except Exception as e: 
                     failed_imports += 1
+                    row_dict = row.to_dict()
+
+                    for key, value in row_dict.items():
+                        if isinstance(value, pd.Timestamp):
+                            row_dict[key] = value.isoformat() 
+                                               
                     print(str(e))
                     ImportLog.objects.create(
                         import_job_id=current_job_id,
                         status=ImportLog.StatusChoices.ERROR,
                         row_number=row_number,
                         error_message=str(e),
-                        row_data=row.to_dict() 
+                        row_data=row_dict  
                     )
             return Response({
                 "message": "Processing complete.",
