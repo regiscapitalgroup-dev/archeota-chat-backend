@@ -83,20 +83,19 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     def __str__(self):
         return self.email
     
-    
+
 class Profile(models.Model):
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='profile')
-    # role = models.ForeignKey(Role, on_delete=models.SET_NULL, null=True, blank=True, related_name="users")
     company = models.ForeignKey(Company, on_delete=models.SET_NULL, null=True, blank=True, related_name="companies")
     phone_number = models.CharField(max_length=30, blank=True, null=True, verbose_name=_('Phone Number'))
-    # avatar = models.ImageField(upload_to='avatars/', null=True, blank=True, verbose_name=_('avatar'))
+    # picture = models.ImageField(upload_to='pictures/', null=True, blank=True, verbose_name=_('Picture'))
     national_id = models.CharField(max_length=100, blank=True, null=True, verbose_name=_('National ID'))
     digital_signature = models.TextField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f'Profile de {self.user.email}'
+        return f'Profile for {self.user.email}'
     
     class Meta:
         verbose_name = "User Profile"
@@ -105,17 +104,12 @@ class Profile(models.Model):
 
 @receiver(post_save, sender=CustomUser)
 def create_user_profile_on_registration(sender, instance, created, **kwargs):
-    """
-    Crea un perfil vacío (UserProfile o CompanyProfile) para un nuevo usuario
-    basado en el rol asignado durante el registro.
-    """
-    # Solo se ejecuta cuando se crea un nuevo usuario
     if created and instance.role:
         if instance.role.code == 'final_user':
             Profile.objects.create(user=instance)
-        elif instance.role.name == 'company':
-            CompanyProfile.objects.create(user=instance)         
-
+        #elif instance.role.name == 'company':
+        #    CompanyProfile.objects.create(user=instance)        
+        #  
 
 class CompanyProfile(models.Model):
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='companyprofile')
@@ -124,7 +118,7 @@ class CompanyProfile(models.Model):
     tax_id = models.CharField(max_length=50, blank=True, null=True, verbose_name="ID Fiscal")
     
     def __str__(self):
-        return f'Perfil de Compañía de {self.user.email}'        
+        return f'Company Profile for {self.user.email}' 
 
 
 class GoogleProfile(models.Model):

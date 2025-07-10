@@ -132,7 +132,6 @@ class ImportDataView(APIView):
                         if isinstance(value, pd.Timestamp):
                             row_dict[key] = value.isoformat() 
 
-                    print(str(e))
                     ImportLog.objects.create(
                         import_job_id=current_job_id,
                         status=ImportLog.StatusChoices.ERROR,
@@ -148,7 +147,6 @@ class ImportDataView(APIView):
                 "failed_imports": failed_imports
             }, status=status.HTTP_202_ACCEPTED)
         except Exception as e:
-            print(str(e))
             return Response({'error': f"Error processing file: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 

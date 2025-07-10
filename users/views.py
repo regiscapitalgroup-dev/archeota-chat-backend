@@ -53,7 +53,6 @@ class ProfileDetailView(generics.RetrieveUpdateAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_object(self):
-        # Devuelve el perfil del usuario que hace la petición
         return self.request.user.profile
 
     def perform_update(self, serializer):
@@ -74,9 +73,7 @@ class UserDetailView(generics.RetrieveAPIView):
     
     def get_serializer_class(self):
         if self.request.method in ['PUT', 'PATCH']:
-            # Para actualizar, usamos el serializer simple y seguro.
             return UserUpdateSerializer
-        # Para ver los detalles, usamos el serializer completo que ya teníamos.
         return UserDetailSerializer
 
 
@@ -154,42 +151,6 @@ class CompanyViewset(viewsets.ModelViewSet):
     serializer_class = CompanySerializer
 
 
-class FinalUserRegisterView(generics.CreateAPIView):
-    """Endpoint para registrar un usuario final ('final_user')."""
-    queryset = CustomUser.objects.all()
-    serializer_class = UnifiedRegisterSerializer
-    permission_classes = [permissions.AllowAny]
-
-    def get_serializer_context(self):
-        # Le pasamos el rol 'USER' al serializer
-        context = super().get_serializer_context()
-        context['role'] = 'final_user'
-        return context
-
-class CompanyRegisterView(generics.CreateAPIView):
-    queryset = CustomUser.objects.all()
-    serializer_class = UnifiedRegisterSerializer
-    permission_classes = [permissions.AllowAny]
-
-    def get_serializer_context(self):
-        # Le pasamos el rol 'COMPANY' al serializer
-        context = super().get_serializer_context()
-        context['role'] = 'company'
-        return context
-
-class AdministratorRegisterView(generics.CreateAPIView):
-    queryset = CustomUser.objects.all()
-    serializer_class = UnifiedRegisterSerializer
-    # ⚠️ ¡ALERTA DE SEGURIDAD! ⚠️
-    # Solo los administradores ya autenticados pueden crear otros administradores.
-    permission_classes = [permissions.IsAuthenticated, permissions.IsAdminUser]
-
-    def get_serializer_context(self):
-        # Le pasamos el rol 'ADMIN' al serializer
-        context = super().get_serializer_context()
-        context['role'] = 'administrator'
-        return context
-
 class RegisterView(generics.CreateAPIView):
     serializer_class = SimplifiedRegisterSerializer
     permission_classes = [permissions.AllowAny]
@@ -197,24 +158,15 @@ class RegisterView(generics.CreateAPIView):
 
 class UserListView(generics.ListAPIView):
     """
-    Vista para listar y filtrar usuarios.
-    
-    Permite filtrar por:
     - /users/?role_name=COMPANY
     - /users/?company_name=MiEmpresa
     - /users/?email=usuario@example.com
     """
-    # 💡 Optimización de rendimiento: precargamos los perfiles y roles 
-    # para evitar consultas extra a la base de datos por cada usuario en la lista.
     queryset = CustomUser.objects.all().select_related(
         'role', 'profile', 'companyprofile'
     )
-    
-    # Usamos el serializer de detalle que ya muestra la info del perfil
     serializer_class = UserDetailSerializer
     
-    # 🔒 Seguridad: Solo usuarios autenticados pueden ver la lista.
-    # Para producción, podrías usar [permissions.IsAdminUser]
     permission_classes = [permissions.IsAuthenticated] 
 
     filter_backends = [DjangoFilterBackend]
@@ -250,9 +202,8 @@ class ForgotMyPassword(APIView):
         try:
             send_mail(subject, message, settings.ADMIN_USER_EMAIL, [user.email])
         except Exception as e:
-            # Opcional: Loguear el error de envío de correo si falla
             print(f"Error sending email: {e}")
-            return Response({'error': 'Hubo un problema al enviar el correo.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({'error': 'There was a problem sending the email.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         return Response({'detail': 'If an account exists with this email, reset instructions will be sent.'}, status=status.HTTP_200_OK)    
     
