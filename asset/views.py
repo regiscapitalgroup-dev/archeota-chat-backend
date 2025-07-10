@@ -84,8 +84,13 @@ class ImportDataView(APIView):
         current_job_id = uuid.uuid4()
 
         successful_imports = 0
-        failed_imports = 0        
-        
+        failed_imports = 0   
+
+        company_profile = self.request.user.profile.company
+
+        if not company_profile:
+            company_profile = 'No Company'
+
         try:
             
             if file_obj.name.endswith('.csv'):
@@ -94,7 +99,7 @@ class ImportDataView(APIView):
                 df = pd.read_excel(file_obj)
             else:
                 return Response({'error': 'Unsupported file format.'}, status=status.HTTP_400_BAD_REQUEST)
-            print(len(df))
+
             df = df.fillna(0, inplace=False)
 
             for index, row in  df.iterrows():
@@ -115,7 +120,7 @@ class ImportDataView(APIView):
                             amount=row['Amount'],
                             notes=row['Notes'],
                             type='Type',
-                            company=self.request.user.profile.company,
+                            company=company_profile,
                             user=self.request.user.email,
                         )
                     successful_imports += 1
@@ -126,14 +131,15 @@ class ImportDataView(APIView):
                     for key, value in row_dict.items():
                         if isinstance(value, pd.Timestamp):
                             row_dict[key] = value.isoformat() 
-                                               
+
                     print(str(e))
                     ImportLog.objects.create(
                         import_job_id=current_job_id,
                         status=ImportLog.StatusChoices.ERROR,
                         row_number=row_number,
                         error_message=str(e),
-                        row_data=row_dict  
+                        row_data=row_dict,
+                        user=self.request.user.email,  
                     )
             return Response({
                 "message": "Processing complete.",
