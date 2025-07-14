@@ -45,6 +45,8 @@ class AgentInteractionLogSerializer(serializers.ModelSerializer):
             'chat_session',
             'question_text',
             'answer_text',
+            'category',
+            'attributes',
             'timestamp',
             'is_successful',
             'error_message'

@@ -67,6 +67,7 @@ class ChatAPIView(generics.GenericAPIView):
         agent_response_text_for_client = "Error: No actionable response was received from the agent."
         actual_agent_response_or_error = None
         additional_questions = None
+        extra_questions = None
         interaction_successful_flag = False
         error_message_for_log = None
         category = None
@@ -84,6 +85,8 @@ class ChatAPIView(generics.GenericAPIView):
 
             response.raise_for_status()
 
+            print(response.text)
+
             try:
                 api_data = response.json()
                 if 'output' in api_data: 
@@ -96,6 +99,9 @@ class ChatAPIView(generics.GenericAPIView):
                         json_data = json.loads(r)
                     actual_agent_response_or_error = json_data['general_response']
                     additional_questions = json_data['additional_questions']
+                    if 'extra_questions' in json_data:
+                        extra_questions = json_data['extra_questions']
+
                     category = json_data['category']
                     tmp = json_data['attributes']
                     dict_attributes = dict(item.split('|') for item in tmp)
@@ -163,6 +169,8 @@ class ChatAPIView(generics.GenericAPIView):
                 chat_session=chat_session,
                 question_text=user_question,
                 answer_text=actual_agent_response_or_error, 
+                category=category,
+                attributes=dict_attributes,
                 is_successful=interaction_successful_flag,
                 error_message=error_message_for_log 
             )
@@ -176,6 +184,7 @@ class ChatAPIView(generics.GenericAPIView):
             response_data = {
                 'general_response': actual_agent_response_or_error,
                 'additional_questions': additional_questions,
+                'extra_questions': extra_questions,
                 'chat_session_id': requested_session_id_str,
                 'category': category,
                 'attributes': dict_attributes
@@ -184,6 +193,7 @@ class ChatAPIView(generics.GenericAPIView):
             response_data = {
                 'general_response': actual_agent_response_or_error,
                 'additional_questions': additional_questions,
+                'extra_questions': extra_questions,
                 'chat_session_id': chat_session.session_id,
                 'category': category,
                 'attributes': dict_attributes

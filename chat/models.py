@@ -36,6 +36,8 @@ class AgentInteractionLog(models.Model):
     )
     question_text = models.TextField(verbose_name='texto de la pregunta')
     answer_text = models.TextField(verbose_name='texto de la respuesta del agente', blank=True, null=True)
+    category = models.CharField(max_length=100, null=True, blank=True)
+    attributes = models.JSONField(null=True, blank=True)
     timestamp = models.DateTimeField(default=timezone.now, verbose_name='fecha y hora')
     is_successful = models.BooleanField(default=False, verbose_name='interacción exitosa')
     error_message = models.TextField(blank=True, null=True, verbose_name='mensaje de error (si hubo)')
