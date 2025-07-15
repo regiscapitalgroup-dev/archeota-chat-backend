@@ -85,8 +85,6 @@ class ChatAPIView(generics.GenericAPIView):
 
             response.raise_for_status()
 
-            print(response.text)
-
             try:
                 api_data = response.json()
                 if 'output' in api_data: 
@@ -97,14 +95,18 @@ class ChatAPIView(generics.GenericAPIView):
                         json_data = json.loads(json_string)  
                     else:
                         json_data = json.loads(r)
-                    actual_agent_response_or_error = json_data['general_response']
-                    additional_questions = json_data['additional_questions']
+                    
+                    if 'general_response' in json_data:
+                        actual_agent_response_or_error = json_data['general_response']
+                    if 'additional_questions' in json_data:
+                        additional_questions = json_data['additional_questions']
                     if 'extra_questions' in json_data:
                         extra_questions = json_data['extra_questions']
-
-                    category = json_data['category']
-                    tmp = json_data['attributes']
-                    dict_attributes = dict(item.split('|') for item in tmp)
+                    if 'category' in json_data:
+                        category = json_data['category']
+                    if 'attributes' in json_data:
+                        tmp = json_data['attributes']
+                        dict_attributes = dict(item.split('|') for item in tmp)
 
                     if not actual_agent_response_or_error:
                         actual_agent_response_or_error = r
