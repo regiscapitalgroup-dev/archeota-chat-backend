@@ -66,6 +66,7 @@ class ChatAPIView(generics.GenericAPIView):
 
         agent_response_text_for_client = "Error: No actionable response was received from the agent."
         actual_agent_response_or_error = None
+        summary = None
         additional_questions = None
         extra_questions = None
         interaction_successful_flag = False
@@ -98,6 +99,8 @@ class ChatAPIView(generics.GenericAPIView):
                     
                     if 'general_response' in json_data:
                         actual_agent_response_or_error = json_data['general_response']
+                    if 'summary' in json_data:
+                        summary = json_data['summary']
                     if 'additional_questions' in json_data:
                         additional_questions = json_data['additional_questions']
                     if 'extra_questions' in json_data:
@@ -185,6 +188,7 @@ class ChatAPIView(generics.GenericAPIView):
         if requested_session_id_str:
             response_data = {
                 'general_response': actual_agent_response_or_error,
+                'summary': summary,
                 'additional_questions': additional_questions,
                 'extra_questions': extra_questions,
                 'chat_session_id': requested_session_id_str,
@@ -194,6 +198,7 @@ class ChatAPIView(generics.GenericAPIView):
         else:
             response_data = {
                 'general_response': actual_agent_response_or_error,
+                'summary': summary,
                 'additional_questions': additional_questions,
                 'extra_questions': extra_questions,
                 'chat_session_id': chat_session.session_id,

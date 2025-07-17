@@ -17,6 +17,7 @@ class AdditionalQuestionSerializer(serializers.Serializer):
 
 class AnswerSerializer(serializers.Serializer):
     general_response = serializers.CharField()
+    summary = serializers.CharField()
     additional_questions = AdditionalQuestionSerializer(many=True) 
     extra_questions = AdditionalQuestionSerializer(many=True)
     chat_session_id = serializers.UUIDField(read_only=True, format='hex_verbose')
