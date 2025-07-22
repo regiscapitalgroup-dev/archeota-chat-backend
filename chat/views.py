@@ -101,7 +101,6 @@ class ChatAPIView(generics.GenericAPIView):
                         actual_agent_response_or_error = json_data['general_response']
                     if 'summary' in json_data:
                         summary = json_data['summary']
-                        s = "".join(summary)
                     if 'additional_questions' in json_data:
                         additional_questions = json_data['additional_questions']
                     if 'extra_questions' in json_data:
@@ -189,7 +188,7 @@ class ChatAPIView(generics.GenericAPIView):
         if requested_session_id_str:
             response_data = {
                 'general_response': actual_agent_response_or_error,
-                'summary': s,
+                'summary': summary,
                 'additional_questions': additional_questions,
                 'extra_questions': extra_questions,
                 'chat_session_id': requested_session_id_str,
@@ -199,7 +198,7 @@ class ChatAPIView(generics.GenericAPIView):
         else:
             response_data = {
                 'general_response': actual_agent_response_or_error,
-                'summary': s,
+                'summary': summary,
                 'additional_questions': additional_questions,
                 'extra_questions': extra_questions,
                 'chat_session_id': chat_session.session_id,
