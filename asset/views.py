@@ -7,7 +7,8 @@ from .serializers import (
     ClaimActionTransactionSerializer, 
     ClaimActionSerializer, 
     CategoryWithAssetsSerializer, 
-    ImportLogSerializer
+    ImportLogSerializer, 
+    ErrorLogDetailSerializer
 )
 from rest_framework.parsers import MultiPartParser, FormParser 
 from rest_framework.response import Response
@@ -177,3 +178,33 @@ class ImportLogListView(generics.ListAPIView):
     def get_queryset(self):
         job_id = self.kwargs['job_id']
         return ImportLog.objects.filter(import_job_id=job_id).order_by('row_number')
+
+
+class UserImportJobsView(APIView):
+    permission_classes = [permissions.IsAuthenticated] 
+
+    def get(self, request, *args, **kwargs):
+        user_job_ids = ImportLog.objects.filter(
+            user=request.user, 
+            status=ImportLog.StatusChoices.ERROR
+        ).values_list('import_job_id', flat=True).distinct()
+
+        response_data = []
+        
+        for job_id in user_job_ids:
+            error_logs = ImportLog.objects.filter(
+                import_job_id=job_id, 
+                status=ImportLog.StatusChoices.ERROR
+            ).order_by('row_number')
+            
+            errors_serializer = ErrorLogDetailSerializer(error_logs, many=True)
+            
+            job_data = {
+                "import_job_id": job_id,
+                "import_date": error_logs.first().created_at if error_logs.exists() else None,
+                "error_count": error_logs.count(),
+                "errors": errors_serializer.data
+            }
+            response_data.append(job_data)
+            
+        return Response(response_data)

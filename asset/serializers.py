@@ -82,3 +82,9 @@ class ImportLogSerializer(serializers.ModelSerializer):
     class Meta:
         model = ImportLog
         fields = ['id', 'status', 'row_number', 'error_message', 'row_data', 'created_at']
+
+
+class ErrorLogDetailSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ImportLog
+        fields = ['row_number', 'error_message', 'row_data']

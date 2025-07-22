@@ -7,7 +7,9 @@ from .views import (
     ClaimActionTransactionListView, 
     AssetsByCategoryView,
     ImportTransactionsDataView, 
-    ImportLogListView)
+    ImportLogListView, 
+    UserImportJobsView
+)
 
 
 urlpatterns = [
@@ -21,4 +23,5 @@ urlpatterns = [
     # import data
     path('transactions/import-data/', ImportTransactionsDataView.as_view(), name='import-transaction-data'),
     path('import-logs/<uuid:job_id>/', ImportLogListView.as_view(), name='import-log-list'),
+    path('my-imports/', UserImportJobsView.as_view(), name='user-import-jobs'),
 ]
