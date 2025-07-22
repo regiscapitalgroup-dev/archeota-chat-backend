@@ -72,7 +72,7 @@ class ClaimActionTransactionListView(generics.ListAPIView):
         return ClaimActionTransaction.objects.none()
 
 
-class ImportDataView(APIView):
+class ImportTransactionsDataView(APIView):
     parser_classes = [MultiPartParser, FormParser]
 
     def post(self, request, *args, **kwargs):
