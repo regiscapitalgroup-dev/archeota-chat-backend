@@ -21,11 +21,11 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 DEBUG = True
 
 ALLOWED_HOSTS = ['https://main.d2r4dlvkgqpbf1.amplifyapp.com', 
-                 'https://archeota-chat-backend-e8799cd9ed08.herokuapp.com',
-                 'localhost', '127.0.0.1', '*']
+                 'localhost', '127.0.0.1', 'archeota-backend-env.eba-zciv32bf.us-east-2.elasticbeanstalk.com']
 
 CSRF_TRUSTED_ORIGINS = [
     'https://archeota-chat-backend-e8799cd9ed08.herokuapp.com',
+    'http://archeota-backend-env.eba-zciv32bf.us-east-2.elasticbeanstalk.com'
 ]
 
 # Application definition
@@ -80,22 +80,27 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'archeota.wsgi.application'
 
+AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
+AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
+AWS_STORAGE_BUCKET_NAME = os.getenv('AWS_STORAGE_BUCKET_NAME')
+AWS_S3_REGION_NAME = os.getenv('AWS_S3_REGION_NAME')
+AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com'
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-#DATABASES = {
-#    'default': {
-#        'ENGINE': 'django.db.backends.sqlite3',
-#        'NAME': BASE_DIR / 'db.sqlite3',
-#    }
-#}
-
 DATABASES = {
-  'default': dj_database_url.config(
-       default=os.getenv('DATABASE_URL')
-    )
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+    }
 }
+
+#DATABASES = {
+#  'default': dj_database_url.config(
+#       default=os.getenv('DATABASE_URL')
+#    )
+#}
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
@@ -135,13 +140,12 @@ STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
 
-# Configuración para archivos subidos por el usuario (media)
-MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media' # BASE_DIR es tu directorio raíz del proyecto
+MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
 
 STORAGES = {
     "default": {
-        "BACKEND": "django.core.files.storage.FileSystemStorage",
+        "BACKEND": "storages.backends.s3.S3Storage",
     },
     "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
@@ -173,8 +177,8 @@ EMAIL_HOST = config("EMAIL_HOST", cast=str, default=None)
 EMAIL_PORT = config("EMAIL_PORT", cast=str, default='587') # Recommended
 EMAIL_HOST_USER = config("EMAIL_HOST_USER", cast=str, default=None)
 EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD", cast=str, default=None)
-EMAIL_USE_TLS = True #config("EMAIL_USE_TLS", cast=bool, default=True)  # Use EMAIL_PORT 587 for TLS
-EMAIL_USE_SSL = False #config("EMAIL_USE_SSL", cast=bool, default=False)  # EUse MAIL_PORT 465 for SSL
+EMAIL_USE_TLS = config("EMAIL_USE_TLS", cast=bool, default=True)  
+EMAIL_USE_SSL = config("EMAIL_USE_SSL", cast=bool, default=False)  
 
 ADMIN_USER_NAME=config("ADMIN_USER_NAME", default="Admin user")
 ADMIN_USER_EMAIL=config("ADMIN_USER_EMAIL", default=None)
