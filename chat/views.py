@@ -1,10 +1,9 @@
 import requests
 import os
 from django.shortcuts import get_object_or_404
-from rest_framework.views import APIView
 from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
-from rest_framework import status, generics
+from rest_framework import status, generics, viewsets
 from .serializers import (
     QuestionSerializer, 
     AnswerSerializer, 
@@ -174,6 +173,7 @@ class ChatAPIView(generics.GenericAPIView):
                 chat_session=chat_session,
                 question_text=user_question,
                 answer_text=actual_agent_response_or_error, 
+                summary=summary,
                 category=category,
                 attributes=dict_attributes,
                 is_successful=interaction_successful_flag,
@@ -229,9 +229,26 @@ class ChatSessionInteractionListView(ListAPIView):
     serializer_class = AgentInteractionLogSerializer
     permission_classes = [IsAuthenticated]
 
+    def list(self, request, *args, **kwargs):
+        user = self.request.user
+        session_uuid = self.kwargs.get('session_uuid')
+        
+        self.chat_session = get_object_or_404(ChatSession, session_id=session_uuid, user=user)
+        
+        self.last_interaction = self.chat_session.interactions.order_by('-timestamp').first()
+
+        return super().list(request, *args, **kwargs) 
+
     def get_queryset(self):
         user = self.request.user
         session_uuid = self.kwargs.get('session_uuid')
         chat_session = get_object_or_404(ChatSession, session_id=session_uuid, user=user)
         return AgentInteractionLog.objects.filter(chat_session=chat_session)
-    
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        
+        last_interaction = self.chat_session.interactions.order_by('-timestamp').first()
+        context['last_interaction'] = last_interaction
+        
+        return context
