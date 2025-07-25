@@ -139,7 +139,7 @@ class ImportTransactionsDataView(APIView):
                         row_number=row_number,
                         error_message=str(e),
                         row_data=row_dict,
-                        user=self.request.user.email,  
+                        user=self.request.user,  
                     )
             return Response({
                 "message": "Processing complete.",

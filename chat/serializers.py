@@ -40,6 +40,9 @@ class ChatSessionSerializer(serializers.ModelSerializer):
         ]
 
 class AgentInteractionLogSerializer(serializers.ModelSerializer):
+    last_question = serializers.SerializerMethodField()
+    last_answer = serializers.SerializerMethodField()
+
     class Meta:
         model = AgentInteractionLog
         fields = [
@@ -47,6 +50,9 @@ class AgentInteractionLogSerializer(serializers.ModelSerializer):
             'chat_session',
             'question_text',
             'answer_text',
+            'last_question',
+            'last_answer',
+            'summary',            
             'category',
             'attributes',
             'timestamp',
@@ -54,3 +60,11 @@ class AgentInteractionLogSerializer(serializers.ModelSerializer):
             'error_message'
         ]
         read_only_fields = ['timestamp']
+
+    def get_last_question(self, obj):
+        last_interaction = self.context.get('last_interaction')
+        return last_interaction.question_text if last_interaction else None
+
+    def get_last_answer(self, obj):
+        last_interaction = self.context.get('last_interaction')
+        return last_interaction.answer_text if last_interaction else None
