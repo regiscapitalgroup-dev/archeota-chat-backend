@@ -5,16 +5,17 @@ from rest_framework_simplejwt.views import TokenObtainPairView as SimpleJWTToken
 from .serializers import (
     GoogleAuthSerializer, 
     UserProfileSerializer, 
-    RoleSerializer, 
     CompanySerializer,
-    UnifiedRegisterSerializer, 
-    CompanyRegisterSerializer, 
-    SimplifiedRegisterSerializer, 
-    UserDetailSerializer,
     UserUpdateSerializer, 
-    PasswordResetConfirmSerializer
+    PasswordResetConfirmSerializer,
+    CustomUserSerializer, 
+    UserDetailSerializer,
+    CustomTokenObtainPairSerializer, 
+    LogoutSerializer,
+    UserSerializer,
+    RoleSerializer    
 )
-from .models import GoogleProfile, Role, Company
+from .models import GoogleProfile, Company, Role
 from rest_framework.authtoken.models import Token
 from google.oauth2 import id_token
 from rest_framework.views import APIView
@@ -22,33 +23,49 @@ from django.conf import settings
 from google.auth.transport import requests
 import requests as rq
 from rest_framework_simplejwt.tokens import RefreshToken
-from .filters import UserFilter 
 from django.contrib.auth import get_user_model
-from django_filters.rest_framework import DjangoFilterBackend
 from django.core.mail import send_mail
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.contrib.sites.shortcuts import get_current_site
-from .serializers import (
-    CustomUserSerializer, 
-    UserDetailSerializer,
-    CustomTokenObtainPairSerializer, 
-    LogoutSerializer
-)
-
+from .permissions import CanManageUserObject, IsCompanyAdministrator, IsCompanyManager
 
 CustomUser = get_user_model()
 
-class UserCreateView(generics.CreateAPIView): 
-    serializer_class = CustomUserSerializer
-    permission_classes = [permissions.AllowAny] 
+
+class UserViewSet(viewsets.ModelViewSet):
+    serializer_class = UserSerializer
+    permission_classes = [permissions.IsAuthenticated, CanManageUserObject]
+
+    def get_queryset(self):
+        user = self.request.user
+
+        if user.is_superuser:
+            return CustomUser.objects.exclude(id=user.id)
+        
+        if user.role == 'COMPANY_ADMIN':
+            managers = user.managed_users.all() 
+            end_users = CustomUser.objects.filter(managed_by__in=managers)
+            return managers | end_users
+
+        if user.role == 'COMPANY_MANAGER':
+            return user.managed_users.all()
+
+        return CustomUser.objects.none()
+
+    def perform_create(self, serializer):
+        serializer.save(managed_by=self.request.user)
+
+
+
+class RoleViewset(viewsets.ModelViewSet):
+    queryset = Role.objects.all()
+    serializer_class = RoleSerializer
+
 
 
 class ProfileDetailView(generics.RetrieveUpdateAPIView):
-    """
-    Vista para ver y actualizar el perfil del usuario autenticado.
-    """
     serializer_class = UserProfileSerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -114,6 +131,7 @@ class GoogleLoginView(APIView):
                     email=email,
                     first_name=first_name,
                     last_name=last_name,
+                    role=CustomUser.Role.FINAL_USER
                 )
                 user.set_unusable_password()
                 user.save()
@@ -141,36 +159,14 @@ class GoogleLoginView(APIView):
             return Response({"error": f"An unexpected error occurred: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-class RoleViewset(viewsets.ModelViewSet):
-    queryset = Role.objects.all()
-    serializer_class = RoleSerializer
-
-
 class CompanyViewset(viewsets.ModelViewSet):
     queryset = Company.objects.all()
     serializer_class = CompanySerializer
 
 
 class RegisterView(generics.CreateAPIView):
-    serializer_class = SimplifiedRegisterSerializer
+    serializer_class = CustomUserSerializer
     permission_classes = [permissions.AllowAny]
-
-
-class UserListView(generics.ListAPIView):
-    """
-    - /users/?role_name=COMPANY
-    - /users/?company_name=MiEmpresa
-    - /users/?email=usuario@example.com
-    """
-    queryset = CustomUser.objects.all().select_related(
-        'role', 'profile', 'companyprofile'
-    )
-    serializer_class = UserDetailSerializer
-    
-    permission_classes = [permissions.IsAuthenticated] 
-
-    filter_backends = [DjangoFilterBackend]
-    filterset_class = UserFilter
 
 
 class ForgotMyPassword(APIView):   

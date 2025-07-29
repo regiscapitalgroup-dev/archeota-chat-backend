@@ -24,7 +24,7 @@ class Role(models.Model):
 def create_initial_roles(sender, **kwargs):
     if sender.name == 'users':
         Role = sender.get_model('Role')
-        ROLES = ['final_user', 'company', 'administrator']
+        ROLES = ['SUPER_ADMIN', 'COMPANY_ADMIN', 'COMPANY_MANAGER', 'FINAL_USER']
         for role_name in ROLES:
             Role.objects.get_or_create(code=role_name)
 
@@ -66,6 +66,13 @@ class CustomUserManager(BaseUserManager):
         return self.create_user(email, password, **extra_fields)
 
 class CustomUser(AbstractBaseUser, PermissionsMixin):
+    
+    class Role(models.TextChoices):
+        SUPER_ADMINISTRATOR = 'SUPER_ADMIN', 'Super Administrator'
+        COMPANY_ADMINISTRATOR = 'COMPANY_ADMIN', 'Company Administrator'
+        COMPANY_MANAGER = 'COMPANY_MANAGER', 'Company Manager'
+        FINAL_USER = 'FINAL_USER', 'Final User'
+    
     email = models.EmailField(_('email address'), unique=True)
     first_name = models.CharField(_('first name'), max_length=150)
     last_name = models.CharField(_('last name'), max_length=150)
@@ -73,7 +80,15 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     is_staff = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True) 
     date_joined = models.DateTimeField(default=timezone.now)
-    role = models.ForeignKey(Role, on_delete=models.SET_NULL, null=True, blank=True, related_name="users")
+    role = models.CharField(max_length=50, choices=Role.choices, default=Role.FINAL_USER) 
+    managed_by = models.ForeignKey(
+        'self', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='managed_users', 
+        help_text="The user who manages this user (their superior in the hierarchy)."
+    )
 
     objects = CustomUserManager()
 
@@ -104,12 +119,10 @@ class Profile(models.Model):
 
 @receiver(post_save, sender=CustomUser)
 def create_user_profile_on_registration(sender, instance, created, **kwargs):
-    if created and instance.role:
-        if instance.role.code == 'final_user':
-            Profile.objects.create(user=instance)
-        #elif instance.role.name == 'company':
-        #    CompanyProfile.objects.create(user=instance)        
-        #  
+    if created: # and instance.role:
+        #if instance.role == 'final_user':
+        Profile.objects.create(user=instance)
+
 
 class CompanyProfile(models.Model):
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='companyprofile')
