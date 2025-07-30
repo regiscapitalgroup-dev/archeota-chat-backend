@@ -55,8 +55,7 @@ class UserViewSet(viewsets.ModelViewSet):
         return CustomUser.objects.none()
 
     def perform_create(self, serializer):
-        serializer.save(managed_by=self.request.user)
-
+        serializer.save()
 
 
 class RoleViewset(viewsets.ModelViewSet):

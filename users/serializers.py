@@ -4,6 +4,9 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer as SimpleJWTTokenObtainPairSerializer
 from .models import Profile, Company, CompanyProfile, Role
 from django.contrib.auth.password_validation import validate_password
+from django.utils.crypto import get_random_string
+from django.core.mail import send_mail
+from django.conf import settings
 
 
 CustomUser = get_user_model()
@@ -11,22 +14,20 @@ CustomUser = get_user_model()
 class UserSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(read_only=True)
     role = serializers.ChoiceField(choices=CustomUser.Role.choices, required=True)
-    password = serializers.CharField(write_only=True, required=True, style={'input_type': 'password'})
     access = serializers.CharField(read_only=True)
     refresh = serializers.CharField(read_only=True)  
 
     class Meta:
         model = CustomUser
-        # Añadimos 'role' a la lista de campos
-        fields = ('id', 'email', 'password', 'first_name', 'last_name', 'role', 'access', 'refresh')
+        fields = ('id', 'email', 'first_name', 'last_name', 'role', 'managed_by','access', 'refresh')
+        read_only_fields = ('id', 'managed_by',)
+
+
 
     def validate(self, data):
-        # El usuario que realiza la petición (el creador)
         creator = self.context['request'].user
-        # El rol que se quiere asignar al nuevo usuario
         proposed_role = data.get('role')
 
-        # Reglas de la jerarquía
         allowed = False
         if creator.role == CustomUser.Role.SUPER_ADMINISTRATOR and proposed_role == CustomUser.Role.COMPANY_ADMINISTRATOR:
             allowed = True
@@ -43,13 +44,34 @@ class UserSerializer(serializers.ModelSerializer):
         return data
 
     def create(self, validated_data):
+        manager = self.context['request'].user
+        password = get_random_string(length=12)
+        validated_data['managed_by'] = manager
+
         user = CustomUser.objects.create_user(
-            email=validated_data['email'],
-            password=validated_data['password'],
-            first_name=validated_data.get('first_name', ''),
-            last_name=validated_data.get('last_name', ''),
-            role=validated_data['role']
+            password=password,
+            **validated_data
         )
+        try:
+            subject = 'Welcome! Your account has been created.'
+            message = (
+                f'Hello {user.first_name},\n\n'
+                f'An account has been created for you on our platform.'
+                f'Your temporary password is: {password}\n\n'
+                'We recommend changing it after your first login..\n\n'
+                'Greetings,\n'
+                'Archeota App Team.'
+            )
+            
+            send_mail(
+                subject,
+                message,
+                settings.DEFAULT_FROM_EMAIL,
+                [user.email],
+                fail_silently=False,
+            )
+        except Exception as e:
+            print(f"Error al enviar correo a {user.email}: {e}")         
 
         refresh_token_obj = RefreshToken.for_user(user)
 

@@ -65,8 +65,8 @@ class CustomUserManager(BaseUserManager):
         
         return self.create_user(email, password, **extra_fields)
 
+
 class CustomUser(AbstractBaseUser, PermissionsMixin):
-    
     class Role(models.TextChoices):
         SUPER_ADMINISTRATOR = 'SUPER_ADMIN', 'Super Administrator'
         COMPANY_ADMINISTRATOR = 'COMPANY_ADMIN', 'Company Administrator'
@@ -119,8 +119,7 @@ class Profile(models.Model):
 
 @receiver(post_save, sender=CustomUser)
 def create_user_profile_on_registration(sender, instance, created, **kwargs):
-    if created: # and instance.role:
-        #if instance.role == 'final_user':
+    if created: 
         Profile.objects.create(user=instance)
 
 
