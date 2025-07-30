@@ -52,6 +52,14 @@ class UserSerializer(serializers.ModelSerializer):
             password=password,
             **validated_data
         )
+
+        creator_company = None
+
+        if hasattr(manager, 'profile') and manager.profile.company:
+            creator_company = manager.profile.company
+        
+        Profile.objects.create(user=user, company=creator_company) 
+      
         try:
             subject = 'Welcome! Your account has been created.'
             message = (
@@ -96,6 +104,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'company',
             'company_name',
             'phone_number',
+            'tax_id',
             'national_id',
             'digital_signature'
          ]
@@ -131,6 +140,8 @@ class CustomUserSerializer(serializers.ModelSerializer):
             last_name=validated_data['last_name'],
             role=CustomUser.Role.FINAL_USER
         )
+
+        Profile.objects.create(user=user)
 
         refresh_token_obj = RefreshToken.for_user(user)
 

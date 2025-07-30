@@ -104,6 +104,7 @@ class Profile(models.Model):
     company = models.ForeignKey(Company, on_delete=models.SET_NULL, null=True, blank=True, related_name="companies")
     phone_number = models.CharField(max_length=30, blank=True, null=True, verbose_name=_('Phone Number'))
     # picture = models.ImageField(upload_to='pictures/', null=True, blank=True, verbose_name=_('Picture'))
+    tax_id = models.CharField(max_length=100, blank=True, null=True, verbose_name=_('Tax ID'))
     national_id = models.CharField(max_length=100, blank=True, null=True, verbose_name=_('National ID'))
     digital_signature = models.TextField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -115,12 +116,6 @@ class Profile(models.Model):
     class Meta:
         verbose_name = "User Profile"
         verbose_name_plural = "Users Profiles"   
-
-
-@receiver(post_save, sender=CustomUser)
-def create_user_profile_on_registration(sender, instance, created, **kwargs):
-    if created: 
-        Profile.objects.create(user=instance)
 
 
 class CompanyProfile(models.Model):
