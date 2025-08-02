@@ -104,6 +104,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'company',
             'company_name',
             'phone_number',
+            'get_profile_picture',
             'tax_id',
             'national_id',
             'digital_signature'
@@ -153,9 +154,19 @@ class CustomUserSerializer(serializers.ModelSerializer):
 
 class UserDetailSerializer(serializers.ModelSerializer): 
     profile = UserProfileSerializer(read_only=True)
+    role_description = serializers.SerializerMethodField()
+
     class Meta:
         model = CustomUser
-        fields = ['id', 'email', 'first_name', 'last_name', 'role', 'managed_by', 'profile'] 
+        fields = ['id', 'email', 'first_name', 'last_name', 'role', 'role_description', 'managed_by', 'profile'] 
+
+    def get_role_description(self, obj):
+            try:
+                role_code = obj.role
+                role_instance = Role.objects.get(code=role_code)
+                return role_instance.description
+            except Role.DoesNotExist:
+                return "Unknow Role"        
 
 
 class CustomTokenObtainPairSerializer(SimpleJWTTokenObtainPairSerializer): 

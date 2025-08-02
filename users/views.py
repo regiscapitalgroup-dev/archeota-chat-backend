@@ -15,7 +15,7 @@ from .serializers import (
     UserSerializer,
     RoleSerializer    
 )
-from .models import GoogleProfile, Company, Role
+from .models import GoogleProfile, Company, Role, Profile
 from rest_framework.authtoken.models import Token
 from google.oauth2 import id_token
 from rest_framework.views import APIView
@@ -122,11 +122,12 @@ class GoogleLoginView(APIView):
             first_name = idinfo.get('given_name', '')
             last_name = idinfo.get('family_name', '')
             name = idinfo.get('name', '') 
+            picture_url = idinfo.get('picture', '') 
 
             try:
                 user = CustomUser.objects.get(email=email)
             except CustomUser.DoesNotExist:
-                user = CustomUser.objects.create_user(
+                user, created = CustomUser.objects.create_user(
                     email=email,
                     first_name=first_name,
                     last_name=last_name,
@@ -135,8 +136,16 @@ class GoogleLoginView(APIView):
                 user.set_unusable_password()
                 user.save()
 
+                if created:
+                    profile, created_profile = Profile.objects.get_o
+
+                if not profile.profile_picture_url:
+                    profile_picture_url = picture_url
+                    profile.save()
+
             google_profile, created = GoogleProfile.objects.get_or_create(user=user)
             google_profile.google_id = userid
+            google_profile.profile_picture_url = picture_url
             google_profile.save()
 
             token, created = Token.objects.get_or_create(user=user)
@@ -147,6 +156,7 @@ class GoogleLoginView(APIView):
                 "message": "Login successful",
                 "user_id": user.id,
                 "email": user.email,
+                "profile_picture_url": google_profile.profile_picture_url,
                 "access": str(refresh_token_obj.access_token),
                 "refresh": str(refresh_token_obj), 
 

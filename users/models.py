@@ -103,7 +103,8 @@ class Profile(models.Model):
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='profile')
     company = models.ForeignKey(Company, on_delete=models.SET_NULL, null=True, blank=True, related_name="companies")
     phone_number = models.CharField(max_length=30, blank=True, null=True, verbose_name=_('Phone Number'))
-    # picture = models.ImageField(upload_to='pictures/', null=True, blank=True, verbose_name=_('Picture'))
+    profile_picture_url = models.URLField(max_length=500, blank=True, null=True)
+    profile_picture_file = models.ImageField(upload_to='profiles/', null=True, blank=True)
     tax_id = models.CharField(max_length=100, blank=True, null=True, verbose_name=_('Tax ID'))
     national_id = models.CharField(max_length=100, blank=True, null=True, verbose_name=_('National ID'))
     digital_signature = models.TextField(null=True, blank=True)
@@ -115,7 +116,15 @@ class Profile(models.Model):
     
     class Meta:
         verbose_name = "User Profile"
-        verbose_name_plural = "Users Profiles"   
+        verbose_name_plural = "Users Profiles" 
+
+    @property
+    def get_profile_picture(self):
+        if self.profile_picture_file:
+            return self.profile_picture_file.url
+        if self.profile_picture_url:
+            return self.profile_picture_url
+        return None       
 
 
 class CompanyProfile(models.Model):
@@ -131,6 +140,7 @@ class CompanyProfile(models.Model):
 class GoogleProfile(models.Model):
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE)
     google_id = models.CharField(max_length=255, unique=True, blank=True, null=True)
+    profile_picture_url = models.URLField(max_length=500, blank=True, null=True)
 
     def __str__(self):
         return f"Google Profile for {self.user.email}"
