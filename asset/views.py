@@ -20,6 +20,10 @@ from .pagination import StandardResultsSetPagination
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Prefetch
 import uuid
+from django.contrib.auth import get_user_model
+
+
+CustomUser = get_user_model()
 
 
 class AssetListCreateView(generics.ListCreateAPIView):
@@ -83,6 +87,14 @@ class ImportTransactionsDataView(APIView):
 
         file_obj = serializer.validated_data['file']
         current_job_id = uuid.uuid4()
+        target_user_id = serializer.validated_data.get('target_user_id')
+        user_for_import = None
+
+        if target_user_id:
+            user_for_import = CustomUser.objects.get(pk=target_user_id)
+        else:
+            # Comportamiento por defecto: usar el usuario de la sesión.
+            user_for_import = request.user                
 
         successful_imports = 0
         failed_imports = 0   
@@ -122,7 +134,7 @@ class ImportTransactionsDataView(APIView):
                             notes=row['Notes'],
                             type='Type',
                             company=company_profile,
-                            user=self.request.user.email,
+                            user=user_for_import,
                         )
                     successful_imports += 1
                 except Exception as e: 
@@ -139,7 +151,7 @@ class ImportTransactionsDataView(APIView):
                         row_number=row_number,
                         error_message=str(e),
                         row_data=row_dict,
-                        user=self.request.user,  
+                        user=user_for_import,  
                     )
             return Response({
                 "message": "Processing complete.",
