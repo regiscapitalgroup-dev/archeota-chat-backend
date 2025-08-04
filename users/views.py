@@ -22,6 +22,7 @@ from rest_framework.views import APIView
 from django.conf import settings
 from google.auth.transport import requests
 import requests as rq
+from django.db.models import Q
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
 from django.core.mail import send_mail
@@ -39,20 +40,51 @@ class UserViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated, CanManageUserObject]
 
     def get_queryset(self):
-        user = self.request.user
+            user = self.request.user
 
-        if user.is_superuser:
-            return CustomUser.objects.exclude(id=user.id)
-        
-        if user.role == 'COMPANY_ADMIN':
-            managers = user.managed_users.all() 
-            end_users = CustomUser.objects.filter(managed_by__in=managers)
-            return managers | end_users
+            # 1. El SUPER_ADMIN puede ver a todos los usuarios
+            if user.role == CustomUser.Role.SUPER_ADMINISTRATOR:
+                return CustomUser.objects.all().select_related('profile')
 
-        if user.role == 'COMPANY_MANAGER':
-            return user.managed_users.all()
+            # 2. El COMPANY_ADMIN ve a los managers y usuarios finales de su propia compañía
+            if user.role == CustomUser.Role.COMPANY_ADMINISTRATOR:
+                # Primero, obtenemos la compañía del admin de forma segura
+                try:
+                    admin_company = user.profile.company
+                except CustomUser.profile.RelatedObjectDoesNotExist:
+                    return CustomUser.objects.none() # No tiene perfil, no puede ver a nadie
 
-        return CustomUser.objects.none()
+                if not admin_company:
+                    return CustomUser.objects.none() # No tiene compañía, no puede ver a nadie
+
+                # Un admin ve a:
+                # - Los Company Managers que él directamente gestiona (sus hijos)
+                # - Los End Users gestionados por sus managers (sus nietos)
+                return CustomUser.objects.filter(
+                    Q(profile__company=admin_company), # Deben ser de la misma compañía
+                    Q(managed_by=user) | Q(managed_by__managed_by=user) # O es mi hijo O es mi nieto jerárquico
+                ).select_related('profile')
+
+            # 3. El COMPANY_MANAGER ve solo a los usuarios finales que él gestiona
+            if user.role == CustomUser.Role.COMPANY_MANAGER:
+                # Obtenemos la compañía del manager de forma segura
+                try:
+                    manager_company = user.profile.company
+                except CustomUser.profile.RelatedObjectDoesNotExist:
+                    return CustomUser.objects.none()
+
+                if not manager_company:
+                    return CustomUser.objects.none()
+                
+                # Un manager ve solo a los End Users que él directamente gestiona
+                return CustomUser.objects.filter(
+                    profile__company=manager_company, # Deben ser de su misma compañía
+                    managed_by=user,                  # Deben ser gestionados directamente por él
+                    role=CustomUser.Role.FINAL_USER     # Y solo pueden ser usuarios finales
+                ).select_related('profile')
+
+            # Por defecto (ej. para un FINAL_USER), no se devuelve ningún usuario
+            return CustomUser.objects.none()
 
     def perform_create(self, serializer):
         serializer.save()

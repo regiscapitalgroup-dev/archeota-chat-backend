@@ -22,26 +22,29 @@ class UserSerializer(serializers.ModelSerializer):
         fields = ('id', 'email', 'first_name', 'last_name', 'role', 'managed_by','access', 'refresh')
         read_only_fields = ('id', 'managed_by',)
 
-
-
     def validate(self, data):
-        creator = self.context['request'].user
-        proposed_role = data.get('role')
+            creator = self.context['request'].user
+            proposed_role = data.get('role')
 
-        allowed = False
-        if creator.role == CustomUser.Role.SUPER_ADMINISTRATOR and proposed_role == CustomUser.Role.COMPANY_ADMINISTRATOR:
-            allowed = True
-        elif creator.role == CustomUser.Role.COMPANY_ADMINISTRATOR and proposed_role == CustomUser.Role.COMPANY_MANAGER:
-            allowed = True
-        elif creator.role == CustomUser.Role.COMPANY_MANAGER and proposed_role == CustomUser.Role.FINAL_USER:
-            allowed = True
-        
-        if not allowed:
-            raise serializers.ValidationError(
-                f"A '{creator.get_role_display()}' does not have permission to create a user with the '{dict(CustomUser.Role.choices).get(proposed_role)}' role."
-            )
-            
-        return data
+            if creator.role == CustomUser.Role.SUPER_ADMINISTRATOR:
+                return data
+
+            if creator.role == CustomUser.Role.COMPANY_ADMINISTRATOR:
+                if proposed_role in [CustomUser.Role.COMPANY_MANAGER, CustomUser.Role.FINAL_USER]:
+                    return data
+                else:
+                    raise serializers.ValidationError(
+                        "As a Company Administrator, you can only create Managers or Final Users."
+                    )
+
+            if creator.role == CustomUser.Role.COMPANY_MANAGER:
+                if proposed_role == CustomUser.Role.FINAL_USER:
+                    return data
+                else:
+                    raise serializers.ValidationError(
+                        "As a Company Manager, you can only create Final Users."
+                    )
+            raise serializers.ValidationError("You do not have permission to create new users.")
 
     def create(self, validated_data):
         manager = self.context['request'].user
@@ -166,7 +169,7 @@ class UserDetailSerializer(serializers.ModelSerializer):
                 role_instance = Role.objects.get(code=role_code)
                 return role_instance.description
             except Role.DoesNotExist:
-                return "Unknow Role"        
+                return "Unknow Role"                 
 
 
 class CustomTokenObtainPairSerializer(SimpleJWTTokenObtainPairSerializer): 
@@ -182,7 +185,7 @@ class LogoutSerializer(serializers.Serializer): # Para Logout
     refresh = serializers.CharField()
 
     default_error_messages = {
-        'bad_token': ('El token es inválido o ha expirado.')
+        'bad_token': ('The token is invalid or has expired.')
     }
 
     def validate(self, attrs):
@@ -219,7 +222,6 @@ class CompanyRegisterSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         profile_data = validated_data.pop('profile')
         
-        # 1. Crea el CustomUser
         user = CustomUser.objects.create_user(
             email=validated_data['email'],
             password=validated_data['password'],
@@ -227,10 +229,8 @@ class CompanyRegisterSerializer(serializers.ModelSerializer):
             last_name='(Company)',
         )
 
-        # 2. Crea explícitamente el CompanyProfile asociado
         CompanyProfile.objects.create(user=user, **profile_data)
         
-        # 3. Genera tokens
         refresh = RefreshToken.for_user(user)
         user.access = str(refresh.access_token)
         user.refresh = str(refresh)
