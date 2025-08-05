@@ -73,7 +73,7 @@ class ClaimActionTransactionListView(generics.ListAPIView):
 
     def get_queryset(self):
         if self.request.user.is_authenticated:
-            return ClaimActionTransaction.objects.all().order_by('-trade_date', 'pk') 
+            return ClaimActionTransaction.objects.all().filter(user=self.request.user).order_by('-trade_date', 'pk') 
         return ClaimActionTransaction.objects.none()
 
 
