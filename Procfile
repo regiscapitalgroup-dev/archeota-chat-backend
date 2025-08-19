@@ -1,1 +1,1 @@
-web: gunicorn archeota.wsgi
+web: gunicorn archeota.wsgi --bind 0.0.0.0:8000
