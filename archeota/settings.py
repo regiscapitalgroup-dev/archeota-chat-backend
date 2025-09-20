@@ -21,10 +21,9 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 DEBUG = True
 
 ALLOWED_HOSTS = ['https://main.d2r4dlvkgqpbf1.amplifyapp.com', 
-                 'localhost', '127.0.0.1', 'archeota-backend-env.eba-zciv32bf.us-east-2.elasticbeanstalk.com']
+                 'localhost', '127.0.0.1', 'archeota-backend-env.eba-zciv32bf.us-east-2.elasticbeanstalk.com', 'archeota.com']
 
 CSRF_TRUSTED_ORIGINS = [
-    'https://archeota-chat-backend-e8799cd9ed08.herokuapp.com',
     'http://archeota-backend-env.eba-zciv32bf.us-east-2.elasticbeanstalk.com'
 ]
 
@@ -46,6 +45,7 @@ INSTALLED_APPS = [
     "users",
     "chat",
     "asset",
+    "claim",
 ]
 
 MIDDLEWARE = [
@@ -93,13 +93,13 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
-    }
+     }
 }
 
 #DATABASES = {
-#  'default': dj_database_url.config(
-#       default=os.getenv('DATABASE_URL')
-#    )
+# 'default': dj_database_url.config(
+#      default=os.getenv('DATABASE_URL')
+#   )
 #}
 
 # Password validation
@@ -140,12 +140,13 @@ STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
 
-MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/media/'
+#MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/media/'
+MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 STORAGES = {
     "default": {
-        "BACKEND": "storages.backends.s3.S3Storage",
+        'BACKEND': 'django.core.files.storage.FileSystemStorage',
     },
     "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
@@ -160,6 +161,9 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 DATA_UPLOAD_MAX_MEMORY_SIZE = 10485760
 
 AUTH_USER_MODEL = 'users.CustomUser'
+
+if not DEBUG:
+  SECURE_SSL_REDIRECT = True
 
 # django-cors-headers
 if DEBUG:

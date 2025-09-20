@@ -137,6 +137,7 @@ class LogoutView(generics.GenericAPIView):
     
 
 class GoogleLoginView(APIView):
+    permission_classes = [permissions.AllowAny]
     serializer_class = GoogleAuthSerializer
 
     def post(self, request):
@@ -149,17 +150,21 @@ class GoogleLoginView(APIView):
                 id_token_str, requests.Request(), settings.GOOGLE_OAUTH_CLIENT_ID
             )
 
-            userid = idinfo['sub']
-            email = idinfo['email']
+            userid = idinfo.get('sub')
+            email = idinfo.get('email')
+            if not email:
+                return Response({"error": "Email not provided by Google token."}, status=status.HTTP_400_BAD_REQUEST)
+
             first_name = idinfo.get('given_name', '')
             last_name = idinfo.get('family_name', '')
-            name = idinfo.get('name', '') 
-            picture_url = idinfo.get('picture', '') 
+            name = idinfo.get('name', '')
+            picture_url = idinfo.get('picture', '')
 
             try:
                 user = CustomUser.objects.get(email=email)
+                created = False
             except CustomUser.DoesNotExist:
-                user, created = CustomUser.objects.create_user(
+                user = CustomUser.objects.create_user(
                     email=email,
                     first_name=first_name,
                     last_name=last_name,
@@ -167,21 +172,25 @@ class GoogleLoginView(APIView):
                 )
                 user.set_unusable_password()
                 user.save()
+                created = True
 
-                if created:
-                    profile, created_profile = Profile.objects.get_o
+            # Ensure profile exists and update missing profile picture
+            profile, _ = Profile.objects.get_or_create(user=user)
+            if picture_url and not profile.profile_picture_url:
+                profile.profile_picture_url = picture_url
+                profile.save()
 
-                if not profile.profile_picture_url:
-                    profile_picture_url = picture_url
-                    profile.save()
-
-            google_profile, created = GoogleProfile.objects.get_or_create(user=user)
-            google_profile.google_id = userid
-            google_profile.profile_picture_url = picture_url
+            # Sync Google profile
+            google_profile, _ = GoogleProfile.objects.get_or_create(user=user)
+            if userid:
+                google_profile.google_id = userid
+            if picture_url:
+                google_profile.profile_picture_url = picture_url
             google_profile.save()
 
-            token, created = Token.objects.get_or_create(user=user)
-            
+            # Optionally keep DRF token creation for backward compatibility
+            Token.objects.get_or_create(user=user)
+
             refresh_token_obj = RefreshToken.for_user(user)
 
             return Response({
@@ -190,8 +199,7 @@ class GoogleLoginView(APIView):
                 "email": user.email,
                 "profile_picture_url": google_profile.profile_picture_url,
                 "access": str(refresh_token_obj.access_token),
-                "refresh": str(refresh_token_obj), 
-
+                "refresh": str(refresh_token_obj),
             }, status=status.HTTP_200_OK)
 
         except ValueError as e:
