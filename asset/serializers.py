@@ -12,6 +12,12 @@ class AssetCategorySerializer(serializers.ModelSerializer):
         fields = ['id', 'category_name', 'attributes']
 
 
+class AssetCategoryBasicSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AssetCategory
+        fields = ['id', 'category_name']
+
+
 class AssetSerializer(serializers.ModelSerializer):
     owner_username = serializers.CharField(source='owner.username', read_only=True)
     category_details = AssetCategorySerializer(source='category', read_only=True)

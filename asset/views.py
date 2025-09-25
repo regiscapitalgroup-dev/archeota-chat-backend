@@ -1,6 +1,7 @@
 from .models import Asset, AssetCategory
 from .serializers import (
     AssetCategorySerializer,
+    AssetCategoryBasicSerializer,
     AssetSerializer,
     CategoryWithAssetsSerializer,
 )
@@ -22,7 +23,26 @@ class AssetListCreateView(generics.ListCreateAPIView):
     filterset_fields = ['category']
 
     def get_queryset(self):
-        return Asset.objects.filter(owner=self.request.user).order_by('-asset_date')
+        request = self.request
+        user_id = request.query_params.get('user_id')
+
+        # Determine target user id: from query or default to session user
+        if user_id is None or user_id == '':
+            # Use authenticated session user
+            if not request.user or not request.user.is_authenticated:
+                return Asset.objects.none()
+            target_user_id = request.user.id
+        else:
+            try:
+                target_user_id = int(user_id)
+            except (TypeError, ValueError):
+                # If invalid user_id, fall back to session user when available
+                if request.user and request.user.is_authenticated:
+                    target_user_id = request.user.id
+                else:
+                    return Asset.objects.none()
+
+        return Asset.objects.filter(owner_id=target_user_id).order_by('-asset_date')
 
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
@@ -47,6 +67,21 @@ class AssetCategoryListView(generics.ListAPIView):
     queryset = AssetCategory.objects.all().order_by('category_name')
     serializer_class = AssetCategorySerializer
     permission_classes = [permissions.IsAuthenticated]
+
+
+class MyAssetCategoriesListView(generics.ListAPIView):
+    serializer_class = AssetCategoryBasicSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if not user or not user.is_authenticated:
+            return AssetCategory.objects.none()
+        return (
+            AssetCategory.objects.filter(asset__owner=user)
+            .distinct()
+            .order_by('category_name')
+        )
 
 class AssetsByCategoryView(generics.ListAPIView):
     serializer_class = CategoryWithAssetsSerializer

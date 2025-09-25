@@ -16,15 +16,68 @@ from .serializers import (
 from rest_framework.parsers import MultiPartParser, FormParser
 from django.contrib.auth import get_user_model
 from django.db.models import Count
+from users.permissions import IsCompanyManager
+
+# Added for dashboard aggregation of assets
+from asset.models import Asset
+from asset.serializers import AssetSerializer
 
 
 USER_MODEL = get_user_model()
 
 
 class ClaimActionListView(generics.ListAPIView):
-    queryset = ClaimAction.objects.all()
     serializer_class = ClaimActionSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if not user.is_authenticated:
+            return ClaimAction.objects.none()
+
+        # Default: own claims
+        own_qs = ClaimAction.objects.filter(user=user)
+
+        # Optional target user by query param (e.g., ?user_id=123)
+        user_id = self.request.query_params.get('user_id')
+        if not user_id:
+            return own_qs
+
+        # Parse target id
+        try:
+            target_id = int(user_id)
+        except (TypeError, ValueError):
+            return own_qs
+
+        # Load target user
+        try:
+            target_user = USER_MODEL.objects.get(pk=target_id)
+        except USER_MODEL.DoesNotExist:
+            return ClaimAction.objects.none()
+
+        # If requesting own data, return own
+        if target_user.id == user.id:
+            return own_qs
+
+        # Authorization: only managers or superior can view others
+        if user.is_superuser:
+            return ClaimAction.objects.filter(user=target_user)
+
+        role = getattr(user, 'role', None)
+
+        # Company Admin can view users they directly manage or second-level reports
+        if role == 'COMPANY_ADMIN':
+            managed_by = getattr(target_user, 'managed_by', None)
+            if managed_by == user or getattr(managed_by, 'managed_by', None) == user:
+                return ClaimAction.objects.filter(user=target_user)
+
+        # Company Manager can view direct reports
+        if role == 'COMPANY_MANAGER':
+            if getattr(target_user, 'managed_by', None) == user:
+                return ClaimAction.objects.filter(user=target_user)
+
+        # Fallback to own claims if not authorized
+        return own_qs
 
 
 class ClaimActionTransactionListView(generics.ListAPIView):
@@ -33,9 +86,27 @@ class ClaimActionTransactionListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        if self.request.user.is_authenticated:
-            return ClaimActionTransaction.objects.all().filter(user=self.request.user).order_by('-trade_date', 'pk')
-        return ClaimActionTransaction.objects.none()
+        request = self.request
+        # Must be authenticated to access any data
+        if not request.user or not request.user.is_authenticated:
+            return ClaimActionTransaction.objects.none()
+
+        # Optional target user by query param (?user_id=123); default to session user
+        user_id = request.query_params.get('user_id')
+        if user_id is None or user_id == '':
+            target_user_id = request.user.id
+        else:
+            try:
+                target_user_id = int(user_id)
+            except (TypeError, ValueError):
+                # If invalid user_id, fallback to session user
+                target_user_id = request.user.id
+
+        return (
+            ClaimActionTransaction.objects
+            .filter(user_id=target_user_id)
+            .order_by('-trade_date', 'pk')
+        )
 
 
 class ImportTransactionsDataView(APIView):
@@ -166,14 +237,27 @@ class ClaimActionDashboardView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, *args, **kwargs):
-        # Total de todos los claims (sin filtrar por usuario)
-        total_claims = ClaimAction.objects.count()
-        # Conteo por estatus excluyendo valores NULL
+        # Determinar el usuario objetivo: ?user_id=<id> o usuario de la sesión
+        user_id_param = request.query_params.get('user_id') or kwargs.get('user_id')
+        if user_id_param is None or user_id_param == '':
+            if not request.user or not request.user.is_authenticated:
+                return Response({'detail': 'No autenticado.'}, status=status.HTTP_401_UNAUTHORIZED)
+            target_user_id = request.user.id
+        else:
+            try:
+                target_user_id = int(user_id_param)
+            except (TypeError, ValueError):
+                return Response({'detail': 'El parámetro user_id debe ser un número entero.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Query de claims filtrados por usuario
+        user_claims = ClaimAction.objects.filter(user_id=target_user_id)
+
+        # Agregación por estatus excluyendo nulos, vacíos y la cadena "NULL"
         by_status_qs = (
-            ClaimAction.objects
+            user_claims
             .exclude(claim_status__isnull=True)
-            .exclude(claim_status='NULL')
             .exclude(claim_status='')
+            .exclude(claim_status__iexact='NULL')
             .values('claim_status')
             .annotate(total=Count('id'))
             .order_by('-total')
@@ -185,7 +269,21 @@ class ClaimActionDashboardView(APIView):
             }
             for item in by_status_qs
         ]
+        total_claims = user_claims.count()
+
         return Response({
+            'user_id': target_user_id,
             'total_claims': total_claims,
             'totals_by_status': totals_by_status,
         })
+
+
+class ManagerDependentsClaimListView(generics.ListAPIView):
+    serializer_class = ClaimActionSerializer
+    permission_classes = [permissions.IsAuthenticated, IsCompanyManager]
+
+    def get_queryset(self):
+        if not self.request.user.is_authenticated:
+            return ClaimAction.objects.none()
+        # Listar solo claims cuyos usuarios son gestionados por el manager en sesión
+        return ClaimAction.objects.filter(user__managed_by=self.request.user)
