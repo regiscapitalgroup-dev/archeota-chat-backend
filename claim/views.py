@@ -79,6 +79,28 @@ class ClaimActionListView(generics.ListAPIView):
         # Fallback to own claims if not authorized
         return own_qs
 
+    def perform_create(self, serializer):
+        # AÑADIDO: Asigna automáticamente el usuario autenticado al crear
+        serializer.save(user=self.request.user)
+
+
+class ClaimActionDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    Permite Leer (Detalle), Actualizar y Borrar una ClaimAction específica.
+    """
+    serializer_class = ClaimActionSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        """
+        Sobrescribimos para asegurar que el usuario solo pueda
+        acceder a SUS PROPIAS ClaimActions.
+        """
+        user = self.request.user
+        if not user.is_authenticated:
+            return ClaimAction.objects.none()
+        return ClaimAction.objects.filter(user=user)
+
 
 class ClaimActionTransactionListView(generics.ListAPIView):
     serializer_class = ClaimActionTransactionSerializer
@@ -107,6 +129,28 @@ class ClaimActionTransactionListView(generics.ListAPIView):
             .filter(user_id=target_user_id)
             .order_by('-trade_date', 'pk')
         )
+
+    def perform_create(self, serializer):
+        # AÑADIDO: Asigna el usuario de la sesión al crear una transacción
+        serializer.save(user=self.request.user)
+
+
+class ClaimActionTransactionDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    Permite Leer (Detalle), Actualizar y Borrar una ClaimActionTransaction específica.
+    """
+    serializer_class = ClaimActionTransactionSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        """
+        Sobrescribimos para asegurar que el usuario solo pueda
+        acceder/editar/borrar SUS PROPIAS transacciones.
+        """
+        user = self.request.user
+        if not user.is_authenticated:
+            return ClaimActionTransaction.objects.none()
+        return ClaimActionTransaction.objects.filter(user=user)
 
 
 class ImportTransactionsDataView(APIView):

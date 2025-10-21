@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     "chat",
     "asset",
     "claim",
+    'api',
 ]
 
 MIDDLEWARE = [
@@ -89,18 +90,18 @@ AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-     }
-}
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': BASE_DIR / 'db.sqlite3',
+#      }
+# }
 
-#DATABASES = {
-# 'default': dj_database_url.config(
-#      default=os.getenv('DATABASE_URL')
-#   )
-#}
+DATABASES = {
+'default': dj_database_url.config(
+     default=os.getenv('DATABASE_URL')
+  )
+}
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
@@ -171,7 +172,6 @@ if DEBUG:
     CORS_ALLOW_CREDENTIALS = True
 else:
     CORS_ALLOWED_ORIGINS = [
-        "http://localhost:3000/",
         "https://main.d2r4dlvkgqpbf1.amplifyapp.com",
     ]
 

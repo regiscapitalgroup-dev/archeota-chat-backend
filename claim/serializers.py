@@ -29,12 +29,14 @@ class ClaimActionSerializer(serializers.ModelSerializer):
     class Meta:
         model = ClaimAction
         fields = '__all__'
+        read_only_fields = ('user',)
 
 
 class ClaimActionTransactionSerializer(serializers.ModelSerializer):
     class Meta:
         model = ClaimActionTransaction
         fields = '__all__'
+        read_only_fields = ('user',)
 
 class ImportLogSerializer(serializers.ModelSerializer):
     class Meta:
