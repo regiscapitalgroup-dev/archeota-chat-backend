@@ -26,7 +26,7 @@ from asset.serializers import AssetSerializer
 USER_MODEL = get_user_model()
 
 
-class ClaimActionListView(generics.ListAPIView):
+class ClaimActionListView(generics.ListCreateAPIView):
     serializer_class = ClaimActionSerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -102,7 +102,7 @@ class ClaimActionDetailView(generics.RetrieveUpdateDestroyAPIView):
         return ClaimAction.objects.filter(user=user)
 
 
-class ClaimActionTransactionListView(generics.ListAPIView):
+class ClaimActionTransactionListView(generics.ListCreateAPIView):
     serializer_class = ClaimActionTransactionSerializer
     pagination_class = StandardResultsSetPagination
     permission_classes = [permissions.IsAuthenticated]
@@ -131,7 +131,6 @@ class ClaimActionTransactionListView(generics.ListAPIView):
         )
 
     def perform_create(self, serializer):
-        # AÑADIDO: Asigna el usuario de la sesión al crear una transacción
         serializer.save(user=self.request.user)
 
 

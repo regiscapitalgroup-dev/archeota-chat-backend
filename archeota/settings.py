@@ -20,11 +20,11 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['https://main.d2r4dlvkgqpbf1.amplifyapp.com', 
-                 'localhost', '127.0.0.1', 'archeota-backend-env.eba-zciv32bf.us-east-2.elasticbeanstalk.com', 'archeota.com']
+ALLOWED_HOSTS = ['https://main.d2r4dlvkgqpbf1.amplifyapp.com', '172.31.29.115',
+                 'localhost', '127.0.0.1', 'archeota-backend-env.eba-zciv32bf.us-east-2.elasticbeanstalk.com', 'api.archeota.com']
 
 CSRF_TRUSTED_ORIGINS = [
-    'http://archeota-backend-env.eba-zciv32bf.us-east-2.elasticbeanstalk.com'
+    'https://api.archeota.com'
 ]
 
 # Application definition
@@ -90,18 +90,18 @@ AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.sqlite3',
-#         'NAME': BASE_DIR / 'db.sqlite3',
-#      }
-# }
-
 DATABASES = {
-'default': dj_database_url.config(
-     default=os.getenv('DATABASE_URL')
-  )
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+     }
 }
+
+# DATABASES = {
+# 'default': dj_database_url.config(
+#      default=os.getenv('DATABASE_URL')
+#   )
+# }
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
