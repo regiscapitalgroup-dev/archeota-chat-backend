@@ -11,7 +11,7 @@ from rest_framework import status, generics, permissions
 from django.db.models import Prefetch
 from django_filters.rest_framework import DjangoFilterBackend
 from django.contrib.auth import get_user_model
-
+from rest_framework.throttling import UserRateThrottle, AnonRateThrottle
 
 USER_MODEL = get_user_model()
 
@@ -21,6 +21,7 @@ class AssetListCreateView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['category']
+    throttle_classes = [UserRateThrottle]
 
     def get_queryset(self):
         request = self.request
@@ -58,6 +59,7 @@ class AssetListCreateView(generics.ListCreateAPIView):
 class AssetDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = AssetSerializer
     permission_classes = [permissions.IsAuthenticated]
+    throttle_classes = [UserRateThrottle]
     
     def get_queryset(self):
         return Asset.objects.filter(owner=self.request.user)
@@ -67,11 +69,13 @@ class AssetCategoryListView(generics.ListAPIView):
     queryset = AssetCategory.objects.all().order_by('category_name')
     serializer_class = AssetCategorySerializer
     permission_classes = [permissions.IsAuthenticated]
+    throttle_classes = [UserRateThrottle]
 
 
 class MyAssetCategoriesListView(generics.ListAPIView):
     serializer_class = AssetCategoryBasicSerializer
     permission_classes = [permissions.IsAuthenticated]
+    throttle_classes = [UserRateThrottle]
 
     def get_queryset(self):
         user = self.request.user
@@ -86,6 +90,7 @@ class MyAssetCategoriesListView(generics.ListAPIView):
 class AssetsByCategoryView(generics.ListAPIView):
     serializer_class = CategoryWithAssetsSerializer
     permission_classes = [permissions.IsAuthenticated]
+    throttle_classes = [UserRateThrottle]
 
     def get_queryset(self):
         user = self.request.user

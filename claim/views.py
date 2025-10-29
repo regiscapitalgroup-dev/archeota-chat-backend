@@ -17,7 +17,7 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from django.contrib.auth import get_user_model
 from django.db.models import Count
 from users.permissions import IsCompanyManager
-
+from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
 # Added for dashboard aggregation of assets
 from asset.models import Asset
 from asset.serializers import AssetSerializer
@@ -29,6 +29,7 @@ USER_MODEL = get_user_model()
 class ClaimActionListView(generics.ListCreateAPIView):
     serializer_class = ClaimActionSerializer
     permission_classes = [permissions.IsAuthenticated]
+    throttle_classes = [UserRateThrottle]
 
     def get_queryset(self):
         user = self.request.user
@@ -85,17 +86,11 @@ class ClaimActionListView(generics.ListCreateAPIView):
 
 
 class ClaimActionDetailView(generics.RetrieveUpdateDestroyAPIView):
-    """
-    Permite Leer (Detalle), Actualizar y Borrar una ClaimAction específica.
-    """
     serializer_class = ClaimActionSerializer
     permission_classes = [permissions.IsAuthenticated]
+    throttle_classes = [UserRateThrottle]
 
     def get_queryset(self):
-        """
-        Sobrescribimos para asegurar que el usuario solo pueda
-        acceder a SUS PROPIAS ClaimActions.
-        """
         user = self.request.user
         if not user.is_authenticated:
             return ClaimAction.objects.none()
@@ -106,6 +101,7 @@ class ClaimActionTransactionListView(generics.ListCreateAPIView):
     serializer_class = ClaimActionTransactionSerializer
     pagination_class = StandardResultsSetPagination
     permission_classes = [permissions.IsAuthenticated]
+    throttle_classes = [UserRateThrottle]
 
     def get_queryset(self):
         request = self.request
@@ -135,11 +131,9 @@ class ClaimActionTransactionListView(generics.ListCreateAPIView):
 
 
 class ClaimActionTransactionDetailView(generics.RetrieveUpdateDestroyAPIView):
-    """
-    Permite Leer (Detalle), Actualizar y Borrar una ClaimActionTransaction específica.
-    """
     serializer_class = ClaimActionTransactionSerializer
     permission_classes = [permissions.IsAuthenticated]
+    throttle_classes = [UserRateThrottle]
 
     def get_queryset(self):
         """
@@ -154,6 +148,8 @@ class ClaimActionTransactionDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 class ImportTransactionsDataView(APIView):
     parser_classes = [MultiPartParser, FormParser]
+    permission_classes = [permissions.IsAuthenticated]
+    throttle_classes = [UserRateThrottle]
 
     def post(self, request, *args, **kwargs):
         serializer = FileUploadSerializer(data=request.data)
@@ -240,6 +236,9 @@ class ImportTransactionsDataView(APIView):
 
 class ImportLogListView(generics.ListAPIView):
     serializer_class = ImportLogSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = StandardResultsSetPagination
+    throttle_classes = [UserRateThrottle]
 
     def get_queryset(self):
         job_id = self.kwargs['job_id']
@@ -248,6 +247,7 @@ class ImportLogListView(generics.ListAPIView):
 
 class UserImportJobsView(APIView):
     permission_classes = [permissions.IsAuthenticated]
+    throttle_classes = [UserRateThrottle]
 
     def get(self, request, *args, **kwargs):
         user_job_ids = ImportLog.objects.filter(
@@ -278,6 +278,7 @@ class UserImportJobsView(APIView):
 
 class ClaimActionDashboardView(APIView):
     permission_classes = [permissions.IsAuthenticated]
+    throttle_classes = [UserRateThrottle]
 
     def get(self, request, *args, **kwargs):
         # Determinar el usuario objetivo: ?user_id=<id> o usuario de la sesión
@@ -324,6 +325,7 @@ class ClaimActionDashboardView(APIView):
 class ManagerDependentsClaimListView(generics.ListAPIView):
     serializer_class = ClaimActionSerializer
     permission_classes = [permissions.IsAuthenticated, IsCompanyManager]
+    throttle_classes = [UserRateThrottle]
 
     def get_queryset(self):
         if not self.request.user.is_authenticated:

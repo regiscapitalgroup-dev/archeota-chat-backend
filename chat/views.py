@@ -14,6 +14,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.db import IntegrityError
 import json
 import uuid
+from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
 
 
 AGENT_API_URL = os.getenv("AGENT_API_URL")
@@ -23,6 +24,7 @@ REQUEST_TIMEOUT = 20
 class ChatAPIView(generics.GenericAPIView):
     serializer_class = QuestionSerializer
     permission_classes = [AllowAny]  # <-- Permite peticiones públicas
+    throttle_classes = [AnonRateThrottle, UserRateThrottle]
 
     def post(self, request, *args, **kwargs):
         question_serializer = QuestionSerializer(data=request.data)
@@ -39,7 +41,7 @@ class ChatAPIView(generics.GenericAPIView):
         session_id_for_agent = None  # El UUID para enviar al agente
 
         if is_authenticated:
-            # --- LÓGICA PARA USUARIOS AUTENTICADOS (Guardar todo) ---
+            # --- LÓGICA PARA USUARIOS AUTENTICADOS  ---
             if requested_session_id_str:
                 try:
                     chat_session, created = ChatSession.objects.get_or_create(
@@ -446,6 +448,7 @@ class ChatAPIView(generics.GenericAPIView):
 class UserChatSessionListView(ListAPIView):
     serializer_class = ChatSessionSerializer
     permission_classes = [IsAuthenticated]
+    throttle_classes = [UserRateThrottle]
 
     def get_queryset(self):
         user = self.request.user
@@ -455,6 +458,7 @@ class UserChatSessionListView(ListAPIView):
 class ChatSessionInteractionListView(ListAPIView):
     serializer_class = AgentInteractionLogSerializer
     permission_classes = [IsAuthenticated]
+    throttle_classes = [UserRateThrottle]
 
     def list(self, request, *args, **kwargs):
         user = self.request.user

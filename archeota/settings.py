@@ -200,7 +200,11 @@ REST_FRAMEWORK = {
         'djangorestframework_camel_case.parser.CamelCaseFormParser',
         'djangorestframework_camel_case.parser.CamelCaseMultiPartParser',
         'djangorestframework_camel_case.parser.CamelCaseJSONParser',
-    ),    
+    ),
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '100/day',  # For anonymous users
+        'user': '1000/day'  # For authenticated users
+    }
 }
 
 AUTHENTICATION_BACKENDS = (
