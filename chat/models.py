@@ -13,14 +13,17 @@ class ChatSession(models.Model):
     user = models.ForeignKey(USER_MODEL, 
                              on_delete=models.CASCADE, 
                              related_name='char_sessions', 
-                             verbose_name='User')
+                             verbose_name='User',
+                             null=True,
+                             blank=True)
     start_time = models.DateTimeField(default=timezone.now, 
                                       verbose_name='Begin Session')
     last_activity = models.DateTimeField(auto_now=True, verbose_name='Last Activity')
     title = models.CharField(max_length=255, blank=True, null=True, verbose_name='Title')
 
     def __str__(self) -> str:
-        return f"Session {self.session_id} of {self.user.email}"
+        user_email = self.user.email if self.user else "Anonymous"
+        return f"Session {self.session_id} of {user_email}"
     
     class Meta:
         verbose_name = 'Chat Session'

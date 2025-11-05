@@ -68,3 +68,7 @@ class AgentInteractionLogSerializer(serializers.ModelSerializer):
     def get_last_answer(self, obj):
         last_interaction = self.context.get('last_interaction')
         return last_interaction.answer_text if last_interaction else None
+
+
+class AssociateSessionSerializer(serializers.Serializer):
+    anonymous_session_id = serializers.UUIDField(format='hex_verbose')
