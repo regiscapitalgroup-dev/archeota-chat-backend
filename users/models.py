@@ -40,6 +40,41 @@ class Company(models.Model):
         verbose_name_plural = "Companies"
 
 
+class Classification(models.Model):
+    company = models.ForeignKey(
+        'Company',
+        on_delete=models.CASCADE,
+        related_name="classifications",
+        verbose_name="Company",
+        null=True,
+        blank=True
+    )
+    name = models.CharField(max_length=50, null=True, blank=True, help_text="Name (e.g., VIP, NORMAL)")
+    color = models.CharField(max_length=50, blank=True, null=True, help_text="Hex Color or Name")
+
+    def __str__(self):
+        return f"{self.name} ({self.company.name})"
+
+    class Meta:
+        unique_together = ('company', 'name')
+        verbose_name = "Classification"
+        verbose_name_plural = "Classifications"
+
+
+class Country(models.Model):
+    code = models.CharField(max_length=2)
+    name = models.CharField(max_length=100)
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        verbose_name = "Country"
+        verbose_name_plural = "Countries"
+        ordering = ['name']
+
+
+
 class CustomUserManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
         if not email:
@@ -72,6 +107,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
         COMPANY_ADMINISTRATOR = 'COMPANY_ADMIN', 'Company Administrator'
         COMPANY_MANAGER = 'COMPANY_MANAGER', 'Company Manager'
         FINAL_USER = 'FINAL_USER', 'Final User'
+        CLIENT = 'CLIENT', 'Client'
     
     email = models.EmailField(_('email address'), unique=True)
     first_name = models.CharField(_('first name'), max_length=150)
@@ -97,7 +133,11 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return self.email
-    
+
+    class Meta:
+        verbose_name = "User"
+        verbose_name_plural = "Users"
+
 
 class Profile(models.Model):
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='profile')
@@ -108,6 +148,15 @@ class Profile(models.Model):
     tax_id = models.CharField(max_length=100, blank=True, null=True, verbose_name=_('Tax ID'))
     national_id = models.CharField(max_length=100, blank=True, null=True, verbose_name=_('National ID'))
     digital_signature = models.TextField(null=True, blank=True)
+    country = models.CharField(max_length=100, blank=True, null=True, verbose_name=_('Country'))
+    address = models.TextField(blank=True, null=True, verbose_name=_('Address'))
+    classification = models.ForeignKey(
+        Classification,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="profiles"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

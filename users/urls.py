@@ -11,7 +11,12 @@ from .views import (
     RegisterView,
     ForgotMyPassword,
     PasswordResetConfirmView,
-    UserViewSet, RoleViewset
+    UserViewSet,
+    RoleViewset,
+    ClassificationViewSet,
+    CountriesListView,
+    UserActivationView,
+    AssignmentViewSet
 )
 
 router = DefaultRouter()
@@ -19,6 +24,8 @@ router = DefaultRouter()
 router.register(r'users', UserViewSet, basename='user')
 router.register(r'roles', RoleViewset, basename='roles')
 router.register(r'companies', CompanyViewset, basename='companies')
+router.register(r'catalog/classifications', ClassificationViewSet, basename='clasificaciones')
+router.register(r'assignment', AssignmentViewSet, basename='assignment')
 
 urlpatterns = [
     path('register/', RegisterView.as_view(), name='user-register'),
@@ -30,5 +37,7 @@ urlpatterns = [
     path('reset-password/confirm/', PasswordResetConfirmView.as_view(), name='password-reset-confirm'),
     path('user/', UserDetailView.as_view(), name='user-detail'), 
     path('user/profile/', ProfileDetailView.as_view(), name='prfile'),
+    path('catalog/countries/', CountriesListView.as_view(), name='countries-list'),
+    path('activate/', UserActivationView.as_view(), name='user-activate'),
     path('', include(router.urls))
 ]

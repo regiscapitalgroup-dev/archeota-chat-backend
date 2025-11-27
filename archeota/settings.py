@@ -90,18 +90,18 @@ AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-     }
-}
-
 # DATABASES = {
-# 'default': dj_database_url.config(
-#      default=os.getenv('DATABASE_URL')
-#   )
+#     'default': {
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': BASE_DIR / 'db.sqlite3',
+#      }
 # }
+
+DATABASES = {
+'default': dj_database_url.config(
+     default=os.getenv('DATABASE_URL')
+  )
+}
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
@@ -176,6 +176,7 @@ else:
     ]
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+#EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
 EMAIL_HOST = config("EMAIL_HOST", cast=str, default=None)
 EMAIL_PORT = config("EMAIL_PORT", cast=str, default='587') # Recommended
@@ -240,3 +241,5 @@ REST_AUTH = {
 }
 
 GOOGLE_OAUTH_CLIENT_ID = os.getenv("GOOGLE_OAUTH_CLIENT_ID")
+
+SITE_URL = config("SITE_URL", default=None)

@@ -1,5 +1,6 @@
 from rest_framework.permissions import BasePermission, SAFE_METHODS
 
+
 class IsCompanyAdministrator(BasePermission):
     """
     Permite el acceso solo a usuarios con el rol de Company Administrator.
@@ -34,3 +35,36 @@ class CanManageUserObject(BasePermission):
             return True
 
         return False
+
+
+class IsSuperAdmin(BasePermission):
+    """
+    Permite el acceso solo a usuarios con el rol de Super Administrator.
+    """
+    def has_permission(self, request, view):
+        # Verificamos que esté autenticado y que su rol sea SUPER_ADMIN
+        return request.user.is_authenticated and request.user.role == 'SUPER_ADMIN'
+
+
+class IsAdminOrCompanyAdmin(BasePermission):
+    """
+    Permite acceso a Super Admins o Company Admins.
+    """
+    def has_permission(self, request, view):
+        if not request.user.is_authenticated:
+            return False
+        return request.user.role in ['SUPER_ADMIN', 'COMPANY_ADMIN']
+
+
+class IsCatalogManager(BasePermission):
+    """
+    Permite acceso a: SUPER_ADMIN, COMPANY_ADMIN y COMPANY_MANAGER.
+    """
+    def has_permission(self, request, view):
+        if not request.user.is_authenticated:
+            return False
+        return request.user.role in [
+            'SUPER_ADMIN',
+            'COMPANY_ADMIN',
+            'COMPANY_MANAGER'
+        ]
