@@ -603,7 +603,7 @@ class UserDependentSerializer(serializers.ModelSerializer):
     Muestra solo los datos solicitados: nombre, país, ID nacional y clasificación.
     """
     # Campos extraídos del perfil
-    country = serializers.CharField(source='profile.country.name', read_only=True, allow_null=True)
+    country = serializers.CharField(source='profile.country', read_only=True, allow_null=True)
     national_id = serializers.CharField(source='profile.national_id', read_only=True, allow_null=True)
     classification_name = serializers.CharField(source='profile.classification.name', read_only=True, allow_null=True)
     classification_color = serializers.CharField(source='profile.classification.color', read_only=True, allow_null=True)
@@ -641,7 +641,7 @@ class UserManagementDetailSerializer(serializers.ModelSerializer):
     company_id = serializers.IntegerField(source='profile.company.id', read_only=True, allow_null=True)
     company_name = serializers.CharField(source='profile.company.name', read_only=True, allow_null=True)
 
-    country = serializers.CharField(source='profile.country.name', read_only=True, allow_null=True)
+    country = serializers.CharField(source='profile.country', read_only=True, allow_null=True)
     classification_id = serializers.CharField(source='profile.classification.id', read_only=True, allow_null=True)
     classification_name = serializers.CharField(source='profile.classification.name', read_only=True, allow_null=True)
     classification_color = serializers.CharField(source='profile.classification.color', read_only=True, allow_null=True)
@@ -837,7 +837,7 @@ class ClientAssignmentListSerializer(serializers.ModelSerializer):
     Lista de clientes con detalles visuales para la reasignación.
     Campos: ID, Nombre, Apellido, País, National ID, Clasificación (Nombre+Color).
     """
-    country = serializers.CharField(source='profile.country.name', read_only=True, allow_null=True)
+    country = serializers.CharField(source='profile.country', read_only=True, allow_null=True)
     national_id = serializers.CharField(source='profile.national_id', read_only=True, allow_null=True)
     classification_name = serializers.CharField(source='profile.classification.name', read_only=True, allow_null=True)
     classification_color = serializers.CharField(source='profile.classification.color', read_only=True, allow_null=True)
