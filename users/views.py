@@ -127,7 +127,9 @@ class AssignmentViewSet(viewsets.GenericViewSet):
             clients_qs = CustomUser.objects.filter(
                 role=CustomUser.Role.CLIENT,
                 managed_by=manager,
-                is_active=True
+                is_active=True,
+                managed_by__role=CustomUser.Role.COMPANY_MANAGER,
+                managed_by__id=manager.pk
             ).select_related('profile', 'profile__company', 'profile__classification')
 
             # --- APLICAR FILTROS DE BÚSQUEDA AQUÍ ---
@@ -161,7 +163,8 @@ class AssignmentViewSet(viewsets.GenericViewSet):
                 profile__company=company,
                 is_active=True
             ).exclude(
-                managed_by=manager
+                Q(managed_by=manager) |
+                Q(managed_by__role=CustomUser.Role.COMPANY_MANAGER)
             ).select_related('profile', 'profile__company', 'profile__classification')
 
             # --- APLICAR FILTROS DE BÚSQUEDA AQUÍ ---
@@ -249,8 +252,11 @@ class UserViewSet(viewsets.ModelViewSet):
                     return CustomUser.objects.none()
 
                 return CustomUser.objects.filter(
-                    Q(profile__company=admin_company),
-                    Q(managed_by=user) | Q(managed_by__managed_by=user)
+                    Q(profile__company=admin_company) | 
+                    Q(managed_by=user) | 
+                    Q(managed_by__managed_by=user)
+                ).exclude(
+                    pk=user.pk
                 ).select_related(
                     'profile', 'profile__classification'
                 ).annotate(
