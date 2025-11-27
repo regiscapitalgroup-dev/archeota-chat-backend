@@ -753,7 +753,7 @@ class UserManagementUpdateSerializer(serializers.ModelSerializer):
     """
     password = serializers.CharField(write_only=True, required=False, style={'input_type': 'password'})
     profile = ProfileDataSerializer(required=False)
-    country = serializers.CharField(source='profile.country', read_only=True, allow_null=True)
+    # country = serializers.CharField(source='country', read_only=True, allow_null=True)
 
     class Meta:
         model = CustomUser
@@ -841,6 +841,7 @@ class ClientAssignmentListSerializer(serializers.ModelSerializer):
     national_id = serializers.CharField(source='profile.national_id', read_only=True, allow_null=True)
     classification_name = serializers.CharField(source='profile.classification.name', read_only=True, allow_null=True)
     classification_color = serializers.CharField(source='profile.classification.color', read_only=True, allow_null=True)
+    classification_id = serializers.IntegerField(source='profile.classification.id', read_only=True, allow_null=True)
 
     class Meta:
         model = CustomUser
@@ -851,7 +852,8 @@ class ClientAssignmentListSerializer(serializers.ModelSerializer):
             'country',
             'national_id',
             'classification_name',
-            'classification_color'
+            'classification_color',
+            'classification_id'
         ]
 
 
