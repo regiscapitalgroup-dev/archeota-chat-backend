@@ -126,8 +126,26 @@ class ClaimActionTransactionListView(generics.ListCreateAPIView):
             .order_by('-trade_date', 'pk')
         )
 
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+    def create(self, request):
+        user = self.request.user
+        user_role = getattr(user, 'role', None)
+
+        if user_role != 'CLIENT' and user_role != 'FINAL_USER':
+            if not self.request.query_params.get('user'):
+                return Response({ "error": "No allowed" }, status=status.HTTP_403_FORBIDDEN)
+            target_id = self.request.query_params.get('user')
+        else:
+            target_id = user.pk
+
+        try:
+            target_user = USER_MODEL.objects.get(pk=target_id)
+        except USER_MODEL.DoesNotExist:
+            return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(user=target_user)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
 class ClaimActionTransactionDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -179,8 +197,10 @@ class ImportTransactionsDataView(APIView):
 
             if file_obj.name.endswith('.csv'):
                 df = pd.read_csv(file_obj)
-            elif file_obj.name.endswith(('.xlsx', '.xls')):
-                df = pd.read_excel(file_obj)
+            elif file_obj.name.endswith('.xlsx'):
+                df = pd.read_excel(file_obj, engine='openpyxl')
+            elif file_obj.name.endswith(('.xls')):
+                df = pd.read_excel(file_obj, engine='xlrd')
             else:
                 return Response({'error': 'Unsupported file format.'}, status=status.HTTP_400_BAD_REQUEST)
 
