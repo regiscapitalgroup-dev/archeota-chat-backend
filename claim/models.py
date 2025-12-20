@@ -2,6 +2,8 @@ from django.db import models
 from django.contrib.auth import get_user_model
 import uuid
 
+from users.models import Company
+
 
 USER_MODEL = get_user_model()
 
@@ -12,24 +14,77 @@ class ClaimAction(models.Model):
     exchange = models.TextField(null=True, blank=True)
     lawsuit_type = models.TextField(null=True, blank=True)
     eligibility = models.CharField(max_length=255, null=True, blank=True)
+    start_eligibility_date = models.CharField(max_length=30, null=True, blank=True)
+    final_eligibility_date = models.CharField(max_length=30, null=True, blank=True)
     potencial_claim = models.CharField(max_length=255, null=True, blank=True)
     total_settlement_fund = models.CharField(max_length=255, null=True, blank=True)
     filing_date = models.CharField(max_length=255, null=True, blank=True)
     claim_deadline = models.CharField(max_length=255, null=True, blank=True)
     law_firm_handing_case = models.CharField(max_length=255, null=True, blank=True)
     case_docket_number = models.CharField(max_length=255, null=True, blank=True)
+    value_per_share = models.DecimalField(max_digits=24, decimal_places=4, null=False, blank=False)
     jurisdiction = models.CharField(max_length=255, null=True, blank=True)
     claim_status = models.CharField(max_length=255, null=True, blank=True)
+    claim_format_name = models.CharField(max_length=255, null=True, blank=True)
+    method_send_claim_format = models.CharField(max_length=255, null=True, blank=True)
+    email = models.CharField(max_length=255, null=True, blank=True)
     official_claim_filing_link = models.CharField(max_length=255, null=True, blank=True)
     last_update = models.CharField(max_length=255, null=True, blank=True)
+    claimed = models.BooleanField(null=False, blank=False, default=False)
     user = models.ForeignKey(USER_MODEL, null=True, on_delete=models.CASCADE, related_name='claim_actions')
-
+    company = models.ForeignKey(Company,  null=True, blank=True, on_delete=models.CASCADE, related_name="claim_actions")
+    
     def __str__(self) -> str:
         return self.tycker_symbol
 
     class Meta:
         verbose_name = "Claim Action"
         verbose_name_plural = "Claim Actions"
+
+class ActionsHoldings(models.Model):
+    lot_number = models.IntegerField(null=False, blank=False, default=0)
+    name = models.CharField(max_length=255, null=True, blank=True)
+    start_date = models.DateField(max_length=30, null=True, blank=True)
+    end_date = models.DateField(max_length=30, null=True, blank=True)
+    symbol = models.CharField(max_length=20, null=False, blank=False)
+    quantity = models.IntegerField(null=False, blank=False)
+    cost_per_stock = models.DecimalField(max_digits=24, decimal_places=4, null=False, blank=False)
+    amount = models.DecimalField(max_digits=24, decimal_places=4, null=False, blank=False)
+    activity = models.CharField(max_length=255, null=True, blank=True)
+    useless = models.BooleanField(null=False, blank=False, default=False)
+    user = models.ForeignKey(USER_MODEL, null=True, on_delete=models.CASCADE, related_name='actions_holdings')
+    company = models.ForeignKey(Company,  null=True, blank=True, on_delete=models.CASCADE, related_name="company_holdings")
+    transaction = models.ForeignKey('ClaimActionTransaction', on_delete=models.SET_NULL, null=True, blank=True, related_name='transaction_holdings')
+    
+    def __str__(self) -> str:
+        return self.name
+
+    class Meta:
+        verbose_name = 'Actions Holdings'
+        verbose_name_plural = 'Actions Holdings'
+
+class ClassActionLawsuit(models.Model):
+    tycker_symbol = models.CharField(max_length=255, null=True, blank=True)
+    company_name = models.CharField(max_length=255, null=True, blank=True)
+    quantity_stock = models.IntegerField(null=False, blank=False)
+    value_per_stock = models.DecimalField(max_digits=24, decimal_places=4, null=False, blank=False)
+    amount = models.DecimalField(max_digits=24, decimal_places=4, null=False, blank=False)
+    claim_date = models.CharField(max_length=255, null=True, blank=True)
+    status = models.TextField(null=True, blank=True)
+    send_format = models.BooleanField(default=False, null=False, blank=True)
+    accept_claim = models.BooleanField(default=False, null=False, blank=True)
+    register_payment = models.BooleanField(default=False, null=False, blank=True)
+    user = models.ForeignKey(USER_MODEL, blank=False, null=False, on_delete=models.CASCADE, related_name='class_actions_lawsuits')
+    company = models.ForeignKey(Company,  null=True, blank=True, on_delete=models.CASCADE, related_name="class_actions_lawsuits")
+    holding = models.ForeignKey(ActionsHoldings, null=True, blank=True, on_delete=models.CASCADE, related_name="class_actions_lawsuits")
+    claim = models.ForeignKey(ClaimAction, null=True, blank=True, on_delete=models.CASCADE, related_name="class_actions_lawsuits" )
+    
+    def __str__(self) -> str:
+        return self.tycker_symbol
+
+    class Meta:
+        verbose_name = "Class Action Lawsuit"
+        verbose_name_plural = "Class Action Lawsuits"
 
 
 class ClaimActionTransaction(models.Model):
@@ -42,8 +97,9 @@ class ClaimActionTransaction(models.Model):
     activity = models.CharField(max_length=60, null=True, blank=True)
     description = models.CharField(max_length=255, null=True, blank=True)
     symbol = models.CharField(max_length=20, null=True, blank=True)
-    quantity = models.CharField(max_length=255, null=True, blank=True)
-    amount = models.CharField(max_length=255, null=True, blank=True)
+    quantity = models.IntegerField(null=False, blank=False)
+    amount = models.DecimalField(max_digits=24, decimal_places=4, null=False, blank=False)
+    cost_per_stock = models.DecimalField(max_digits=24, decimal_places=4, null=False, blank=False)
     notes = models.CharField(max_length=255, null=True, blank=True)
     type = models.CharField(max_length=255, null=True, blank=True)
     company = models.CharField(max_length=255, null=True, blank=True)

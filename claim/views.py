@@ -1,30 +1,77 @@
+from decimal import Decimal
+from django.forms import ValidationError
 from rest_framework.response import Response
 import uuid
+from datetime import datetime
 from rest_framework.views import APIView
 from django.db import transaction
 import pandas as pd
 from asset.pagination import StandardResultsSetPagination
-from .models import ClaimActionTransaction, ClaimAction, ImportLog
+from claim.services.stock import FileStockHandler
+from claim.services.transaction import TransactionService
+from users.models import Company
+from .models import ClaimActionTransaction, ClaimAction, ImportLog, ClassActionLawsuit
 from rest_framework import status, generics, permissions
 from .serializers import (
     ClaimActionSerializer,
     FileUploadSerializer,
     ClaimActionTransactionSerializer,
     ImportLogSerializer,
-    ErrorLogDetailSerializer
+    ErrorLogDetailSerializer,
+    ClassActionLawsuitSerializer
 )
+from claim.services.claim import ClaimSevice
 from rest_framework.parsers import MultiPartParser, FormParser
 from django.contrib.auth import get_user_model
-from django.db.models import Count
+from django.db.models import Count, Q
 from users.permissions import IsCompanyManager
 from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
 # Added for dashboard aggregation of assets
 from asset.models import Asset
 from asset.serializers import AssetSerializer
+from openpyxl import load_workbook
 
 
 USER_MODEL = get_user_model()
 
+class ClassActionLawsuitListView(generics.ListCreateAPIView):
+    serializer_class = ClassActionLawsuitSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if not user.is_authenticated:
+            return ClassActionLawsuit.objects.none()
+        own_qs = ClassActionLawsuit.objects.filter(user=user)
+        role = getattr(user, 'role', None)
+        company_id = self.request.query_params.get('company_id')
+        if company_id:
+            if role == 'SUPER_ADMIN':
+                return ClassActionLawsuit.objects.filter(company_id=company_id)
+            else:
+                return ClassActionLawsuit.objects.filter(company_id=user.profile.company)
+        
+        return own_qs
+            
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+class ClassActionLawsuitDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = ClassActionLawsuitSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if not user.is_authenticated:
+            return ClassActionLawsuit.objects.none()
+        
+        role = getattr(user, 'role', None)
+        if role == 'SUPER_ADMIN':
+            return ClassActionLawsuit.objects.all()
+        if role == 'COMPANY_ADMIN' or role == 'COMPANY_MANAGER':
+            return ClassActionLawsuit.objects.filter(company_id=user.profile.company)
+
+        return ClassActionLawsuit.objects.filter(user=user)
 
 class ClaimActionListView(generics.ListCreateAPIView):
     serializer_class = ClaimActionSerializer
@@ -35,54 +82,42 @@ class ClaimActionListView(generics.ListCreateAPIView):
         user = self.request.user
         if not user.is_authenticated:
             return ClaimAction.objects.none()
-
-        # Default: own claims
-        own_qs = ClaimAction.objects.filter(user=user)
-
-        # Optional target user by query param (e.g., ?user_id=123)
-        user_id = self.request.query_params.get('user_id')
-        if not user_id:
-            return own_qs
-
-        # Parse target id
-        try:
-            target_id = int(user_id)
-        except (TypeError, ValueError):
-            return own_qs
-
-        # Load target user
-        try:
-            target_user = USER_MODEL.objects.get(pk=target_id)
-        except USER_MODEL.DoesNotExist:
-            return ClaimAction.objects.none()
-
-        # If requesting own data, return own
-        if target_user.id == user.id:
-            return own_qs
-
-        # Authorization: only managers or superior can view others
-        if user.is_superuser:
-            return ClaimAction.objects.filter(user=target_user)
-
+        
         role = getattr(user, 'role', None)
+        company_id = self.request.query_params.get('company_id')
+        if company_id:
+            if role == 'SUPER_ADMIN':
+                return ClaimAction.objects.filter(company_id=company_id)
+            else:
+                return ClaimAction.objects.filter(company_id=user.profile.company)
 
-        # Company Admin can view users they directly manage or second-level reports
-        if role == 'COMPANY_ADMIN':
-            managed_by = getattr(target_user, 'managed_by', None)
-            if managed_by == user or getattr(managed_by, 'managed_by', None) == user:
-                return ClaimAction.objects.filter(user=target_user)
+        if role == 'SUPER_ADMIN':
+            return ClaimAction.objects.all()
 
-        # Company Manager can view direct reports
-        if role == 'COMPANY_MANAGER':
-            if getattr(target_user, 'managed_by', None) == user:
-                return ClaimAction.objects.filter(user=target_user)
+        return ClaimAction.objects.filter(Q(user=user) | Q(company_id=user.profile.company))
 
-        # Fallback to own claims if not authorized
-        return own_qs
+    def create(self, request):
+        user = self.request.user
+        user_role = getattr(user, 'role', None)
+        data = request.data.copy()
 
-    def perform_create(self, serializer):
-        # AÑADIDO: Asigna automáticamente el usuario autenticado al crear
-        serializer.save(user=self.request.user)
+        if user_role == 'SUPER_ADMIN':
+            company_id = data.get("company_id")
+            if not company_id:
+                return Response(
+                    {"detail": "company_id is required for SUPER_ADMIN"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            data["company"] = company_id
+        else:
+            data["company"] = user.profile.company.id
+        
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
 
 
 class ClaimActionDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -94,8 +129,57 @@ class ClaimActionDetailView(generics.RetrieveUpdateDestroyAPIView):
         user = self.request.user
         if not user.is_authenticated:
             return ClaimAction.objects.none()
+        
+        user_role = getattr(user, "role", None) 
+        if user_role == 'SUPER_ADMIN':
+            return ClaimAction.objects.all()
+
         return ClaimAction.objects.filter(user=user)
 
+
+class ClaimActionDetailsView(generics.RetrieveAPIView):
+    serializer_class = ClaimActionSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        user = self.request.user
+        qs = ClaimAction.objects.select_related("company")
+
+        if user.role != 'SUPER_ADMIN':
+            qs = qs.filter(company=user.profile.company)
+        return qs
+    
+    def get(self, request, *args, **kwargs):
+        claim_action = self.get_object()
+        if not claim_action.company:
+            return Response('Company does not exist in claim action', status=status.HTTP_400_BAD_REQUEST)
+        serializer = ClaimActionSerializer(claim_action, context={'request': request})
+        return Response(serializer.data)
+
+class ClaimActionGenerateClaimView(generics.RetrieveAPIView):
+    serializer_class = ClaimActionSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        user = self.request.user
+        qs = ClaimAction.objects.select_related("company")
+
+        if user.role != 'SUPER_ADMIN':
+            qs = qs.filter(company=user.profile.company)
+        return qs
+    
+    def get(self, request, *args, **kwargs):
+        claim_action = self.get_object()
+        if not claim_action.company:
+            return Response('Company does not exist in claim action', status=status.HTTP_400_BAD_REQUEST)
+        if claim_action.claimed:
+            return Response('This action is already claimed', status=status.HTTP_400_BAD_REQUEST)
+
+        svc = ClaimSevice(self.request.user, claim_action.company)
+        svc.process_claim(claim_action)
+        claim_action.claimed = True
+        claim_action.save(update_fields=["claimed"])
+        return Response()
 
 class ClaimActionTransactionListView(generics.ListCreateAPIView):
     serializer_class = ClaimActionTransactionSerializer
@@ -129,7 +213,6 @@ class ClaimActionTransactionListView(generics.ListCreateAPIView):
     def create(self, request):
         user = self.request.user
         user_role = getattr(user, 'role', None)
-
         if user_role != 'CLIENT' and user_role != 'FINAL_USER':
             if not self.request.query_params.get('user'):
                 return Response({ "error": "No allowed" }, status=status.HTTP_403_FORBIDDEN)
@@ -142,13 +225,31 @@ class ClaimActionTransactionListView(generics.ListCreateAPIView):
         except USER_MODEL.DoesNotExist:
             return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
 
+        transaction_svc = TransactionService(user=target_user, company_profile=target_user.profile.company)
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        serializer.save(user=target_user)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        data = serializer.validated_data.copy()
+        instance = transaction_svc.create_instance(
+            data_for=data['data_for'],
+            account=data['account'],
+            account_name=data['account_name'],
+            account_number=data['account_number'],
+            account_type=data['account_type'],
+            activity=data['activity'],
+            quantity=data['quantity'],
+            amount=data['amount'],
+            cost_per_stock=data['amount'] / Decimal(data['quantity']),
+            description=data['description'],
+            notes=data['notes'],
+            symbol=data['symbol'],
+            trade_date=datetime.fromisoformat(data['trade_date'])
+        )
+        transaction_svc.insert_objects([instance])
+        transaction_svc.process_bulk()
+        return Response(instance, status=status.HTTP_201_CREATED)
 
 
-class ClaimActionTransactionDetailView(generics.RetrieveUpdateDestroyAPIView):
+class ClaimActionTransactionDetailView(generics.RetrieveAPIView):
     serializer_class = ClaimActionTransactionSerializer
     permission_classes = [permissions.IsAuthenticated]
     throttle_classes = [UserRateThrottle]
@@ -161,7 +262,27 @@ class ClaimActionTransactionDetailView(generics.RetrieveUpdateDestroyAPIView):
         user = self.request.user
         if not user.is_authenticated:
             return ClaimActionTransaction.objects.none()
+        
+        user_role = getattr(user, "role", None) 
+        if user.is_superuser or user_role == "SUPER_USER":
+            return ClaimActionTransaction.objects.all()
+
+        if user_role in ("COMPANY_ADMIN", "COMPANY_MANAGER"):
+            return ClaimActionTransaction.objects.filter(user__company=user.company)
+
         return ClaimActionTransaction.objects.filter(user=user)
+    
+    # def retrieve(self, request, *args, **kwargs):
+    #     instance = self.get_object()
+    #     data = self.get_serializer(instance).data
+
+    #     user = instance.user
+    #     data["user"] = user.id 
+    #     company = getattr(user.profile, "company", None)
+    #     if company:
+    #         data["company"] = company.id
+    #     return Response(data)
+
 
 
 class ImportTransactionsDataView(APIView):
@@ -187,68 +308,65 @@ class ImportTransactionsDataView(APIView):
 
         successful_imports = 0
         failed_imports = 0
-
+        warnings_imports = {}
         company_profile = self.request.user.profile.company
-
-        if not company_profile:
-            company_profile = 'No Company'
-
         try:
+            transaction_svc = TransactionService(user=user_for_import, company_profile=company_profile)
+            file_svc = FileStockHandler(file_obj)
+            _, header_idx = file_svc.create_iter()
+            batch_size = 1000
+            objects = []
+            oldest_symbols = file_svc.oldest_symbols()
+            symbols = []
+            for symbol in oldest_symbols:
+                old_activity_row = oldest_symbols[symbol][header_idx["Activity"]]
+                validated = transaction_svc.validate_oldest_buy(symbol, old_activity_row)
+                if not validated:
+                    warnings_imports[symbol] = "There is no initial purchase for this symbol"
+                    continue
+                symbols.append(symbol)
 
-            if file_obj.name.endswith('.csv'):
-                df = pd.read_csv(file_obj)
-            elif file_obj.name.endswith('.xlsx'):
-                df = pd.read_excel(file_obj, engine='openpyxl')
-            elif file_obj.name.endswith(('.xls')):
-                df = pd.read_excel(file_obj, engine='xlrd')
-            else:
-                return Response({'error': 'Unsupported file format.'}, status=status.HTTP_400_BAD_REQUEST)
-
-            df = df.fillna(0, inplace=False)
-
-            for index, row in df.iterrows():
-                row_number = index + 2
+            for row in file_svc.rows_by_symbols(symbols):
                 try:
-                    with transaction.atomic():
-                        ClaimActionTransaction.objects.create(
-                            data_for=row['Data For'],
-                            trade_date=row['Trade Date'],
-                            account=row['Account'],
-                            account_name=row['Account Name'],
-                            account_type=row['Account Type'],
-                            account_number=row['Account Number'],
-                            activity=row['Activity'],
-                            description=row['Description'],
-                            symbol=row['Symbol'],
-                            quantity=row['Quantity'],
-                            amount=row['Amount'],
-                            notes=row['Notes'],
-                            type='Type',
-                            company=company_profile,
-                            user=user_for_import,
-                        )
-                    successful_imports += 1
-                except Exception as e:
-                    failed_imports += 1
-                    row_dict = row.to_dict()
-
-                    for key, value in row_dict.items():
-                        if isinstance(value, pd.Timestamp):
-                            row_dict[key] = value.isoformat()
-
-                    ImportLog.objects.create(
-                        import_job_id=current_job_id,
-                        status=ImportLog.StatusChoices.ERROR,
-                        row_number=row_number,
-                        error_message=str(e),
-                        row_data=row_dict,
-                        user=user_for_import,
+                    cost_per_stock = Decimal(row[header_idx['Amount']]) / Decimal(row[header_idx['Quantity']])
+                    obj = transaction_svc.create_instance(
+                        data_for=row[header_idx['Data For']],
+                        trade_date=row[header_idx['Trade Date']],
+                        account=row[header_idx['Account']],
+                        account_name=row[header_idx['Account Name']],
+                        account_type=row[header_idx['Account Type']],
+                        account_number=row[header_idx['Account Number']],
+                        activity=row[header_idx['Activity']],
+                        description=row[header_idx['Description']],
+                        symbol=row[header_idx['Symbol']],
+                        quantity=row[header_idx['Quantity']],
+                        cost_per_stock=cost_per_stock,
+                        amount=row[header_idx['Amount']],
+                        notes=row[header_idx['Notes']]
                     )
+                    objects.append(obj)
+                    if len(objects) >= batch_size:
+                        transaction_svc.insert_objects(objects)
+                        successful_imports += len(objects)
+                        objects.clear()
+
+                except Exception as e:
+                    failed_imports += 1   
+
+            if objects:
+                transaction_svc.insert_objects(objects)
+                successful_imports += len(objects)
+                objects.clear()
+
+            warnings_process = transaction_svc.process_bulk()
+
             return Response({
                 "message": "Processing complete.",
                 "import_job_id": current_job_id,
                 "successful_imports": successful_imports,
-                "failed_imports": failed_imports
+                "failed_imports": failed_imports,
+                "warnings_imports": warnings_imports,
+                "warnings_process": warnings_process
             }, status=status.HTTP_202_ACCEPTED)
         except Exception as e:
             return Response({'error': f"Error processing file: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
