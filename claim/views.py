@@ -309,7 +309,7 @@ class ImportTransactionsDataView(APIView):
         successful_imports = 0
         failed_imports = 0
         warnings_imports = {}
-        company_profile = self.request.user.profile.company
+        company_profile = user_for_import.profile.company
         try:
             transaction_svc = TransactionService(user=user_for_import, company_profile=company_profile)
             file_svc = FileStockHandler(file_obj)
