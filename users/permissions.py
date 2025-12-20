@@ -33,6 +33,9 @@ class CanManageUserObject(BasePermission):
         # Un Company Admin puede gestionar a los usuarios de sus managers
         if request.user.role == 'COMPANY_ADMIN' and obj.managed_by and obj.managed_by.managed_by == request.user:
             return True
+        
+        if request.user.role == 'COMPANY_ADMIN' and obj.profile.company == request.user.profile.company:
+            return True
 
         return False
 

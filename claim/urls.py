@@ -1,5 +1,7 @@
 from django.urls import path
 from .views import (
+    ClaimActionDetailsView,
+    ClaimActionGenerateClaimView,
     ClaimActionListView,
     ClaimActionTransactionListView,
 
@@ -9,11 +11,17 @@ from .views import (
     ClaimActionDashboardView,
     ManagerDependentsClaimListView,
     ClaimActionDetailView,
-    ClaimActionTransactionDetailView
+    ClaimActionTransactionDetailView,
+    ClassActionLawsuitListView,
+    ClassActionLawsuitDetailView
 )
 
 urlpatterns = [
+    path('class-actions/', ClassActionLawsuitListView.as_view(), name='classactions-list'),
+    path('class-actions/<int:pk>', ClassActionLawsuitDetailView.as_view(), name='classactions-detail'),
     path('claim-actions/', ClaimActionListView.as_view(), name='claimaction-list'),
+    path('claim-actions/generate-claim/<int:pk>/', ClaimActionGenerateClaimView.as_view(), name='generate-claim'),
+    path('claim-actions/details/<int:pk>/', ClaimActionDetailsView.as_view(), name='detail-claim'),
     path('claim-actions/<int:pk>/', ClaimActionDetailView.as_view(), name='claimaction-detail'), # <-- AÑADIR ESTA LÍNEA
     path('claim-actions/dashboard/', ClaimActionDashboardView.as_view(), name='claimaction-dashboard'),
     path('claim-actions/dependents/', ManagerDependentsClaimListView.as_view(), name='manager-dependents-claim-list'),

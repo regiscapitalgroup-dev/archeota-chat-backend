@@ -528,6 +528,7 @@ class UserListSerializer(serializers.ModelSerializer):
     """
     # 1. Role: Mostramos la descripción en lugar del código
     role = serializers.SerializerMethodField()
+    role_code = serializers.SerializerMethodField()
 
     # 3. Clasificación y Color: Los sacamos del perfil
     classification = serializers.CharField(source='profile.classification.name', read_only=True, allow_null=True)
@@ -536,6 +537,7 @@ class UserListSerializer(serializers.ModelSerializer):
     dependents_count = serializers.SerializerMethodField()
 
     company = serializers.CharField(source='profile.company.name', read_only=True, allow_null=True)
+    company_id = serializers.IntegerField(source='profile.company.id', read_only=True, allow_null=True)
     address = serializers.CharField(source='profile.address', read_only=True, allow_null=True)
 
     class Meta:
@@ -546,11 +548,13 @@ class UserListSerializer(serializers.ModelSerializer):
             'last_name',
             'email',
             'role',  # Ahora será la descripción
+            'role_code',  # Ahora será la descripción
             'dependents_count',  # Ahora será un objeto
             'is_active',  # Campo nuevo solicitado
             'classification',  # Campo nuevo
             'color',  # Campo nuevo
             'company',
+            'company_id',
             'address'
         ]
 
@@ -578,6 +582,13 @@ class UserListSerializer(serializers.ModelSerializer):
         try:
             role_instance = Role.objects.get(code=obj.role)
             return role_instance.description or role_instance.code  # Fallback al código si no hay descripción
+        except Role.DoesNotExist:
+            return obj.get_role_display()
+    
+    def get_role_code(self, obj):
+        try:
+            role_instance = Role.objects.get(code=obj.role)
+            return role_instance.code
         except Role.DoesNotExist:
             return obj.get_role_display()
 
@@ -753,7 +764,7 @@ class UserManagementUpdateSerializer(serializers.ModelSerializer):
     """
     password = serializers.CharField(write_only=True, required=False, style={'input_type': 'password'})
     profile = ProfileDataSerializer(required=False)
-    country = serializers.CharField(source='profile.country', read_only=True, allow_null=True)
+    # country = serializers.CharField(source='country', read_only=True, allow_null=True)
 
     class Meta:
         model = CustomUser
@@ -841,6 +852,7 @@ class ClientAssignmentListSerializer(serializers.ModelSerializer):
     national_id = serializers.CharField(source='profile.national_id', read_only=True, allow_null=True)
     classification_name = serializers.CharField(source='profile.classification.name', read_only=True, allow_null=True)
     classification_color = serializers.CharField(source='profile.classification.color', read_only=True, allow_null=True)
+    classification_id = serializers.IntegerField(source='profile.classification.id', read_only=True, allow_null=True)
 
     class Meta:
         model = CustomUser
@@ -851,7 +863,8 @@ class ClientAssignmentListSerializer(serializers.ModelSerializer):
             'country',
             'national_id',
             'classification_name',
-            'classification_color'
+            'classification_color',
+            'classification_id'
         ]
 
 

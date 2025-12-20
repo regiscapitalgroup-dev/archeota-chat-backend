@@ -127,7 +127,9 @@ class AssignmentViewSet(viewsets.GenericViewSet):
             clients_qs = CustomUser.objects.filter(
                 role=CustomUser.Role.CLIENT,
                 managed_by=manager,
-                is_active=True
+                is_active=True,
+                managed_by__role=CustomUser.Role.COMPANY_MANAGER,
+                managed_by__id=manager.pk
             ).select_related('profile', 'profile__company', 'profile__classification')
 
             # --- APLICAR FILTROS DE BÚSQUEDA AQUÍ ---
@@ -161,7 +163,8 @@ class AssignmentViewSet(viewsets.GenericViewSet):
                 profile__company=company,
                 is_active=True
             ).exclude(
-                managed_by=manager
+                Q(managed_by=manager) |
+                Q(managed_by__role=CustomUser.Role.COMPANY_MANAGER)
             ).select_related('profile', 'profile__company', 'profile__classification')
 
             # --- APLICAR FILTROS DE BÚSQUEDA AQUÍ ---
@@ -249,8 +252,11 @@ class UserViewSet(viewsets.ModelViewSet):
                     return CustomUser.objects.none()
 
                 return CustomUser.objects.filter(
-                    Q(profile__company=admin_company),
-                    Q(managed_by=user) | Q(managed_by__managed_by=user)
+                    Q(profile__company=admin_company) | 
+                    Q(managed_by=user) | 
+                    Q(managed_by__managed_by=user)
+                ).exclude(
+                    pk=user.pk
                 ).select_related(
                     'profile', 'profile__classification'
                 ).annotate(
@@ -322,6 +328,40 @@ class UserViewSet(viewsets.ModelViewSet):
             }, status=status.HTTP_200_OK)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=False, methods=['GET'], url_path='clients')
+    def get_clients(self, request):
+        user = request.user
+        user_role = getattr(user, 'role', None)
+
+        if user_role == 'SUPER_ADMIN':
+            company_id = request.query_params.get('company_id')
+            role =  "FINAL_USER" if not company_id else "CLIENT"
+            qs = CustomUser.objects.filter(
+                role=role
+            )
+            if company_id:
+                qs = qs.filter(profile__company_id=company_id)
+        elif user_role == 'COMPANY_ADMIN':
+            company_id = user.profile.company_id
+            qs = CustomUser.objects.filter(
+                role="CLIENT",
+                profile__company_id=company_id
+            )
+        elif user_role == 'COMPANY_MANAGER':
+            company_id = user.profile.company_id
+            qs = CustomUser.objects.filter(
+                role="CLIENT",
+                profile__company_id=company_id,
+                managed_by__id=user.pk
+            )
+        else:
+            return Response({ "error": "Not authorized" }, status=status.HTTP_403_FORBIDDEN)            
+        
+        qs = qs.select_related('profile', 'profile__classification').annotate(dependents_count=Count('managed_users'))
+        serializer = UserListSerializer(qs, many=True)
+        return Response(serializer.data)
+            
 
     def perform_create(self, serializer):
         serializer.save()

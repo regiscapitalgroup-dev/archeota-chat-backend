@@ -1,9 +1,35 @@
 from rest_framework import serializers
-from .models import ClaimAction, ClaimActionTransaction, ImportLog
+from django.db.models import Sum
+from users.serializers import UserSerializer
+from .models import ActionsHoldings, ClaimAction, ClaimActionTransaction, ImportLog, ClassActionLawsuit
 from django.contrib.auth import get_user_model
 
 USER_MODEL = get_user_model()
 
+
+class HoldingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ActionsHoldings
+        fields = '__all__'
+        read_only_fields = ('user',)
+
+class ClassActionLawsuitSerializer(serializers.ModelSerializer):
+    holding = HoldingSerializer(read_only=True)
+    user = UserSerializer(read_only=True)
+    
+    class Meta:
+        model = ClassActionLawsuit
+        fields = '__all__'
+        read_only_fields = ('user',)
+    
+    def validate(self, data):
+        qty = data.get("quantity_stock")
+        value = data.get("value_per_stock")
+
+        if qty is not None and value is not None:
+            data["amount"] = qty * value
+
+        return data
 
 class FileUploadSerializer(serializers.Serializer):
     file = serializers.FileField()
@@ -26,17 +52,38 @@ class FileUploadSerializer(serializers.Serializer):
 
 
 class ClaimActionSerializer(serializers.ModelSerializer):
+    class_actions_lawsuits = ClassActionLawsuitSerializer(
+        many=True,
+        read_only=True
+    )
+
     class Meta:
         model = ClaimAction
         fields = '__all__'
         read_only_fields = ('user',)
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        request = self.context.get('request')
+        if not request:
+            return
+
+        user = request.user
+        user_role = getattr(user, 'role', None)
+        if user_role in ('FINAL_USER', 'CLIENT'):
+            self.fields.pop('class_actions_lawsuits', None)
 
 class ClaimActionTransactionSerializer(serializers.ModelSerializer):
+    costPerStock = serializers.DecimalField(
+        max_digits=24,
+        decimal_places=4,
+        required=False 
+    )
     class Meta:
         model = ClaimActionTransaction
         fields = '__all__'
-        read_only_fields = ('user',)
+        read_only_fields = ('user', 'cost_per_stock')
 
 class ImportLogSerializer(serializers.ModelSerializer):
     class Meta:
