@@ -20,7 +20,7 @@ from .serializers import (
     ErrorLogDetailSerializer,
     ClassActionLawsuitSerializer
 )
-from claim.services.claim import ClaimSevice
+# from claim.services.claim import ClaimSevice
 from rest_framework.parsers import MultiPartParser, FormParser
 from django.contrib.auth import get_user_model
 from django.db.models import Count, Q
