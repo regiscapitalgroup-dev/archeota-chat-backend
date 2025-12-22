@@ -1,5 +1,7 @@
 from collections import defaultdict
 from decimal import Decimal
+from django.core.mail import EmailMessage
+import uuid
 from django.core.mail import send_mail
 from typing import Any
 from archeota import settings
@@ -22,6 +24,7 @@ class ClaimSevice():
     @transaction.atomic
     def __create_class(self, claim: ClaimAction, holding: ActionsHoldings):
         return ClassActionLawsuit(
+            batch_id = uuid.uuid4(),
             tycker_symbol=holding.symbol,
             company_name=claim.company_name,
             quantity_stock=holding.quantity,
@@ -35,105 +38,44 @@ class ClaimSevice():
             claim=claim
         )
     
+    @transaction.atomic
+    def __format_sent(self, batch_id: list[uuid.UUID]):
+        (ClassActionLawsuit.objects
+        .filter(batch_id__in=batch_id)
+        .update(send_format=True))
+    
     def send_claim_email(self, user, claim: ClaimAction, holdings: list[ClassActionLawsuit]):
-        html_content = f"""
-            <h1>Join the {claim.company_name} Class Action</h1>
-            <h2>{claim.company_name} Securities Class Action Certification</h2>
-
-            <p>
-            The individual or institution listed below (the "Plaintiff") authorizes,
-            and, upon execution of the accompanying retainer agreement by {claim.law_firm_handing_case}, retains {claim.law_firm_handing_case} to file an action under the federal securities
-            laws.
-            </p>
-
-            <div class="section">
-
-            <h3>Personal Information</h3>
-
-            <p><span class="label">First Name:</span> {user.first_name}</p>
-            <p><span class="label">Last Name:</span> {user.last_name }</p>
-            <p><span class="label">Mailing Address:</span> { user.profile.address }</p>
-            <p><span class="label">Country:</span> { user.profile.country }</p>
-            <p><span class="label">Phone:</span> { user.profile.phone_number }</p>
-            <p><span class="label">Email:</span> { user.email }</p>
-
-            <p>
-                If Representing an Entity: [] Yes [X] No
-            </p>
-
-            <p>
-                Are you a current or former employee of the company? [] Yes [X] No
-            </p>
-            </div>
-
-            <div class="section">
-            <h3>Plaintiff Certifies That:</h3>
-            <ol>
-                <li>Has reviewed and authorized the filing of the complaint.</li>
-                <li>Did not acquire securities at the direction of counsel.</li>
-                <li>Is willing to serve as a class representative.</li>
-                <li>Is fully authorized to execute this certification.</li>
-                <li>Will not accept improper compensation.</li>
-            </ol>
-            </div>
-
-
-            <table border="1" cellpadding="5" cellspacing="0" style="border-collapse: collapse;">
-                <thead>
-                    <tr>
-                        <th>Lot</th>
-                        <th>Start date</th>
-                        <th>Final date</th>
-                        <th>Company</th>
-                        <th>Symbol</th>
-                        <th>Quantity</th>
-                        <th>Amount</th>
-                        <th>Cost per stock</th>
-                    </tr>
-                </thead>
-            <tbody>
-                
-            """
-        for hold in holdings:
-            html_content += f"""
-                <tr>
-                    <td>{hold.holding.lot_number}</td>
-                    <td>{hold.holding.start_date}</td>
-                    <td>{hold.holding.end_date}</td>
-                    <td>{hold.holding.company}</td>
-                    <td>{hold.holding.symbol}</td>
-                    <td>{hold.holding.quantity}</td>
-                    <td>{hold.holding.amount}</td>
-                    <td>{hold.holding.cost_per_stock}</td>
-                </tr>
-            """
-
-
-        html_content += """
-                </tbody>
-            </table>
-            <div class="section">
-                <h3>Additional Disclosures</h3>
-                </div>
-
-                <div class="signature-box">
-                <p>
-                    [] I declare under penalty of perjury that the information is accurate.
-                </p>
-
-                <p><strong>Signature:</strong> </p>
-                <p><strong>Date:</strong> </p>
-            </div>
-            """
-
-        send_mail(
+        pdf = ClaimReporter.build_reporter(user, claim, holdings)
+        mail = EmailMessage(
             subject=f"Claim Action for {user.first_name} {user.last_name}",
-            message="Claim reporter",
+            body="Archeota - Claim Action Report",
             from_email=settings.ADMIN_USER_EMAIL,
-            recipient_list=[claim.email],
-            html_message=html_content,
+            to=[claim.email]
         )
-        pass
+
+        mail.attach(
+            filename=f"ClaimAction_{user.first_name}_{user.last_name}_{claim.tycker_symbol}.pdf",
+            content=pdf,
+            mimetype="application/pdf"
+        )
+        mail.send()
+
+        batch_ids = [h.batch_id for h in holdings]
+        self.__format_sent(batch_ids)
+
+    def __send_handle(self, claim: ClaimAction, payload: dict[Any, list[ClassActionLawsuit]]):
+        method = str(claim.method_send_claim_format).strip().upper()
+        match method:
+            case "EMAIL":
+                for user, classes in payload.items():
+                    self.send_claim_email(
+                        user,
+                        claim,
+                        classes
+                    )
+                return
+            case _:
+                return
 
     def process_claim(self, claim: ClaimAction):
         if self.user.role != 'SUPER_ADMIN' and self.user.profile.company.id != self.company.id:
@@ -147,18 +89,12 @@ class ClaimSevice():
         for holding in company_holdings:
             class_lawsuit = self.__create_class(claim, holding) 
             grouped_by_user[holding.user].append(class_lawsuit)
-    
+
         for _, bulk in grouped_by_user.items():
             self.__save_bulk(bulk)
         
-        if claim.method_send_claim_format != 'Email':
-            return
+        self.__send_handle(claim, grouped_by_user)
         
-        for user, classes in grouped_by_user.items():
-            self.send_claim_email(
-                user,
-                claim,
-                classes
-            )
+        
         
         
