@@ -64,6 +64,7 @@ class ActionsHoldings(models.Model):
         verbose_name_plural = 'Actions Holdings'
 
 class ClassActionLawsuit(models.Model):
+    batch_id = models.UUIDField(default=uuid.uuid4, db_index=True)
     tycker_symbol = models.CharField(max_length=255, null=True, blank=True)
     company_name = models.CharField(max_length=255, null=True, blank=True)
     quantity_stock = models.IntegerField(null=False, blank=False)
