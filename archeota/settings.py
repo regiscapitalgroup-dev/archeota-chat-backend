@@ -20,7 +20,7 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['https://main.d2r4dlvkgqpbf1.amplifyapp.com', '172.31.29.115',
+ALLOWED_HOSTS = ['https://main.d2r4dlvkgqpbf1.amplifyapp.com', '172.31.29.115', '172.31.31.175',
                  'localhost', '127.0.0.1', 'archeota-backend-env.eba-zciv32bf.us-east-2.elasticbeanstalk.com', 'api.archeota.com']
 
 CSRF_TRUSTED_ORIGINS = [
